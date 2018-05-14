@@ -27,11 +27,12 @@ public class Control extends Thread {
     //This hashmap is to record status of each connection
     protected static HashMap<String, ArrayList<String>> connectionServers;
     private static ArrayList<Connection> neighbors;
+    private static ArrayList<String> pendingNeighbors;
     //This userlist is to store all user information locally in memory
     private static ArrayList<User> localUserList;
     //This registerList is a pending list for all registration applications
     private static HashMap<Connection, User> registerPendingList;
-    private final String uniqueId; // unique id for a server
+    private static String uniqueId; // unique id for a server
     protected static boolean term = false;
     private static Listener listener;
 
@@ -53,13 +54,14 @@ public class Control extends Thread {
         // initialize the connections array
         connections = new ArrayList<Connection>();
         connectionClients = new ArrayList<Connection>();
-        uniqueId = UUID.randomUUID().toString();
         //connectionServers is to record all replies from its neighbors and record all connection status.
         connectionServers = new HashMap<String, ArrayList<String>>();
         neighbors = new ArrayList<Connection>();
+        pendingNeighbors = new ArrayList<String>();
         localUserList = new ArrayList<User>();
         registerPendingList = new HashMap<Connection, User>();
         serverLoad = new Load();
+        uniqueId = Settings.getLocalHostname() + " " + Settings.getLocalPort();
         // start a listener
         try {
             listener = new Listener();
@@ -73,21 +75,31 @@ public class Control extends Thread {
     public void initiateConnection() {
         // make a connection to another server if remote hostname is supplied
         if (Settings.getRemoteHostname() != null) {
-            try {
-                Connection con = outgoingConnection(new Socket(Settings.getRemoteHostname(), Settings.getRemotePort()));
-                JSONObject authenticate = Command.createAuthenticate(Settings.getSecret());
-                con.writeMsg(authenticate.toJSONString());
-                connectionServers.put(con.getRemoteId(), new ArrayList<String>());
-                neighbors.add(con);
-                log.debug("Add neighbor: " + con.getRemoteId());
-            } catch (IOException e) {
-                log.error("failed to make connection to " + Settings.getRemoteHostname() + ":" + Settings.getRemotePort() + " :" + e);
-                System.exit(-1);
-            }
+            createServerConnection(Settings.getRemoteHostname(), Settings.getRemotePort());
         }
         // start server announce
         new ServerAnnounce();
 
+    }
+    
+    
+    public void createServerConnection(String hostname, int port) {
+        try {
+                Connection con = outgoingConnection(new Socket(hostname, port));
+                JSONObject authenticate = Command.createAuthenticate(Settings.getSecret(), uniqueId);
+                String remoteId;
+                if(hostname == null){
+                    remoteId = "localhost" + " " + port;
+                }else{
+                    remoteId = hostname + " " + port;
+                }
+                pendingNeighbors.add(remoteId);
+                con.writeMsg(authenticate.toJSONString());
+                
+            } catch (IOException e) {
+                log.error("failed to make connection to " + Settings.getRemoteHostname() + ":" + Settings.getRemotePort() + " :" + e);
+                System.exit(-1);
+            }
     }
 
     /*
@@ -128,23 +140,75 @@ public class Control extends Thread {
                                 log.debug(connectionServers.toString());
                                 Authenticate auth = new Authenticate(msg, con);
                                 if (!auth.getResponse()) {
-                                    connectionServers.put(con.getRemoteId(), new ArrayList<String>());
+                                    // Set remoteId for this connection
+                                    String remoteId = (String)userInput.get("remoteId");
+                                    con.setRemoteId(remoteId);
+                                    // Send all neighbors information to the new server
+                                    ArrayList neighborInfo = new ArrayList<String>();
+                                    
+                                    for(Connection nei : neighbors){
+                                        neighborInfo.add( nei.getRemoteId());                                            
+                                    }
+                                    String respondMsg = Command.createAuthenticateSuccess(neighborInfo, uniqueId);
+                                    log.debug("Respond to authentication with message " + respondMsg);
+                                    con.writeMsg(respondMsg);
+                                    
+                                    connectionServers.put(remoteId, new ArrayList<String>());
                                     neighbors.add(con);
                                     log.debug("Add neighbor: " + con.getRemoteId());
                                 }
                                 return auth.getResponse();
                             }
-        
-                        case AUTHENTICATION_FAIL:
+                        case AUTHENTICATION_SUCCESS:
+                            log.debug("Receive authentication sucess");
                             if (!Command.checkValidCommandFormat2(userInput)){
-                                String invalidAuth = Command.createInvalidMessage("Invalid AuthenticateFail Message Format");
+                                String invalidAuth = Command.createInvalidMessage("Invalid Authenticate Success Message Format");
                                 con.writeMsg(invalidAuth);                                
+                            }                                        
+                            else{
+                                // Set remoteId for this connection
+                                String remoteId = (String)userInput.get("remoteId");
+                                con.setRemoteId(remoteId);
+                                // Add connection into neighbor list
+                                connectionServers.put(remoteId, new ArrayList<String>());
+                                neighbors.add(con);
+                                pendingNeighbors.remove(remoteId);
+                                log.debug("Add neighbor: " + con.getRemoteId());
+                                
+                                
+                                // creat full connection
+                                ArrayList<String> neighborInfo = (ArrayList<String>)userInput.get("info");
+                                for(String neiId : neighborInfo){
+                                    String[] neiDetail = neiId.split(" ");
+                                    if (!(this.containsServer(neiId) || pendingNeighbors.contains(neiId))){
+                                        String hostname = neiDetail[0];
+                                        Integer port = Integer.parseInt(neiDetail[1]);
+                                        log.debug("Send connection request to " + hostname + ", port " + port); 
+                                        createServerConnection(hostname, port);
+                                            
+                                    }
+                                }
+                                
+                                return false;
                             }
-                            else if (!this.containsServer(con.getRemoteId())) {
-                                String invalidServer = Command.createInvalidMessage("The server has not"
-                                        + "been authenticated.");
-                                con.writeMsg(invalidServer);                                
+                            return true;
+                        case AUTHENTICATION_FAIL:
+                            String remoteId = (String)userInput.get("remoteId");
+                            if (!Command.checkValidCommandFormat2(userInput)){
+                                String invalidAuth = Command.createInvalidMessage("Invalid Authenticate Fail Message Format");
+                                con.writeMsg(invalidAuth);
                             }
+                            if (!remoteId.isEmpty()){
+                                if (!pendingNeighbors.contains(remoteId)) {
+                                    String invalidServer = Command.createInvalidMessage("Authentication Fail Message "
+                                            + "From Invalid Server");
+                                    con.writeMsg(invalidServer);                                
+                                }
+                                else{
+                                    pendingNeighbors.remove(remoteId);
+                                    log.debug("Authentication failed and server is removed.");
+                                }
+                            }                            
                             return true;
         
                         case SERVER_ANNOUNCE:
@@ -161,8 +225,6 @@ public class Control extends Thread {
                             }
                             // Record the load infomation
                             serverLoad.updateLoad(userInput);
-                            // continue to broadcast the receiving server announce
-                            broadcast(msg, con.getRemoteId());
                             return false;
         
                         case REGISTER:
@@ -405,28 +467,12 @@ public class Control extends Thread {
         return false;
     }
 
-    public synchronized boolean broadcast(String msg, String excludeConId) {
-        // If the message originate from one neighbor, when broadcast,
-        // exclude this neighbor from being broadcast
-        if (excludeConId.isEmpty()) {
-            for (Connection nei : neighbors) {
-                nei.writeMsg(msg);
-                //log.debug("Broadcast with no exclusion of connection");
-                //log.debug("Broadcast message to " + nei.getRemoteId() + " : " + msg);
-            }
-        } else {
-        	
-            for (Connection nei : neighbors) {
-                if (!(nei.getRemoteId().equals(excludeConId))) {
-                    nei.writeMsg(msg);
-                    //log.debug("Broadcast exclude: " + excludeConId);
-                    //log.debug("Broadcast message to " + nei.getRemoteId() + " : " + msg);
-                }
-            }
-        }
+    public synchronized boolean broadcast(String msg) {     
+        for (Connection nei : neighbors) {
+            nei.writeMsg(msg);               
+        }    
         // need failure model
         return true;
-
     }
 
     /*
@@ -478,7 +524,7 @@ public class Control extends Thread {
         return connectionServers;
     }
 
-    public String getUniqueId() {
+    public synchronized static String getUniqueId() {
         return uniqueId;
     }
     

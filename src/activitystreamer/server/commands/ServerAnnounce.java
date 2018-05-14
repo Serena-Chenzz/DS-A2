@@ -35,7 +35,7 @@ public class ServerAnnounce extends Thread{
 				try {
 					load = Load.getOwnLoad();
 					JSONObject serverAnnounce = Command.createServerAnnounce(Control.getInstance().getUniqueId(),load,Settings.getLocalHostname(),Settings.getLocalPort()); 
-					Control.getInstance().broadcast(serverAnnounce.toJSONString(), "");
+					Control.getInstance().broadcast(serverAnnounce.toJSONString());
 					Thread.sleep(Settings.getActivityInterval());
 				} catch (InterruptedException e) {
 					log.info("received an interrupt, system is shutting down");

@@ -36,7 +36,7 @@ public class ActivityMessage {
             	//broadCast jsonString
         		String actBroad = Command.createActivityBroadcast(msg, activity);
         		ControlBroadcast.broadcastClients(actBroad);
-        		Control.getInstance().broadcast(actBroad, con.getRemoteId());
+        		Control.getInstance().broadcast(actBroad);
                 closeConnection = false;
                 return;
             }
@@ -46,12 +46,12 @@ public class ActivityMessage {
                 	//broadCast jsonString
             		String actBroad = Command.createActivityBroadcast(msg, activity);
             		ControlBroadcast.broadcastClients(actBroad);
-            		Control.getInstance().broadcast(actBroad, con.getRemoteId());
+            		Control.getInstance().broadcast(actBroad);
                     closeConnection = false;
                     return;
                 }else { 
                     //If this username and secret are not correct, we send an authentication failed
-                    con.writeMsg(Command.createAuthenticateFailed(secret));
+                    con.writeMsg(Command.createAuthenticateFailed(secret, ""));
                     closeConnection = true;
                     return;
                 }

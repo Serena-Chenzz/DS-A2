@@ -29,7 +29,7 @@ public class ActivityBroadcast {
                 closeConnection = true;
             } else {
             	ControlBroadcast.broadcastClients(msg);
-                Control.getInstance().broadcast(msg, con.getRemoteId());
+                Control.getInstance().broadcast(msg);
         		closeConnection=false;
             }
         } catch (ParseException e) {

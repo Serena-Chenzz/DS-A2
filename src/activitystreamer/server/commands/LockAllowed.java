@@ -44,7 +44,7 @@ public class LockAllowed {
                     }
                     else{
                         //If the client is not registerd in this server, it will broadcast this lock_allowed message.
-                        Control.getInstance().broadcast(msg,con.getRemoteId());
+                        Control.getInstance().broadcast(msg);
                         closeConnection = false;
                     }
                 }
