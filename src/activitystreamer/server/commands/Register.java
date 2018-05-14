@@ -58,7 +58,7 @@ public class Register {
             	log.info("Start broadcasting lock_request");
                 Control.getInstance().addUserToRegistePendingList(username, secret, con);
                 JSONObject lockRequest = Command.createLockRequest(username, secret,Settings.getLocalHostname());
-                Control.getInstance().broadcast(lockRequest.toJSONString(),con.getRemoteId());
+                Control.getInstance().broadcast(lockRequest.toJSONString());
                 log.debug(lockRequest.toJSONString());
                 closeConnection = false;
             }

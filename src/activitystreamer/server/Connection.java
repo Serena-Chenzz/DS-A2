@@ -23,7 +23,11 @@ public class Connection extends Thread {
     private boolean open = false;
     private Socket socket;
     private boolean term = false;
-    private final String remoteId;
+    private String remoteId = "";
+
+    public void setRemoteId(String remoteId) {
+        this.remoteId = remoteId;
+    }
 
     Connection(Socket socket) throws IOException {
         in = new DataInputStream(socket.getInputStream());
@@ -32,7 +36,8 @@ public class Connection extends Thread {
         outwriter = new PrintWriter(out, true);
         this.socket = socket;
         open = true;
-        remoteId = socket.getInetAddress() + ":" + socket.getPort();
+
+//        remoteId = socket.getInetAddress() + ":" + socket.getPort();
         start();
     }
 

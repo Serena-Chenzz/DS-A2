@@ -53,7 +53,7 @@ public class Load {
         // If this is a new server
         if(!serverList.containsKey(id)){
             ServerInfo si = new ServerInfo(hostname, portStr);
-            serverList.put(id, si);
+            serverList.put(id, si); 
         }
         // Update loadmap
         loadMap.put(id, Integer.parseInt(userInput.get("load").toString()));

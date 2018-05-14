@@ -1,5 +1,6 @@
 package activitystreamer.models;
 
+import java.util.ArrayList;
 import org.json.simple.JSONObject;
 
 
@@ -131,17 +132,26 @@ public enum Command {
         JSONObject obj = new JSONObject();
         obj.put("command", REGISTER_FAILED.toString());
         obj.put("info", username + " is already registered with the system");
-        
+         
         return obj;
     }
 
     @SuppressWarnings("unchecked")
-    public static JSONObject createAuthenticate(String secret) {
+    public static JSONObject createAuthenticate(String secret, String uniqueId) {
         JSONObject obj = new JSONObject();
         obj.put("command", AUTHENTICATE.toString());
         obj.put("secret",secret);
-        
+        obj.put("remoteId", uniqueId);        
         return obj;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public static String createAuthenticateSuccess(ArrayList neighborInfo, String uniqueId) {
+        JSONObject obj = new JSONObject();
+        obj.put("command", AUTHENTICATION_SUCCESS.toString());
+        obj.put("info",neighborInfo); 
+        obj.put("remoteId", uniqueId); 
+        return obj.toJSONString();
     }
     
     @SuppressWarnings("unchecked")
@@ -167,11 +177,11 @@ public enum Command {
 
     
     @SuppressWarnings("unchecked")
-    public static String createAuthenticateFailed(String secret) {
+    public static String createAuthenticateFailed(String secret, String uniqueId) {
         JSONObject obj = new JSONObject();
         obj.put("command", Command.AUTHENTICATION_FAIL.toString());
         obj.put("info", "the supplied secret is incorrect: "+secret);
-           
+        obj.put("remoteId", uniqueId);
        return obj.toJSONString();
     }
     

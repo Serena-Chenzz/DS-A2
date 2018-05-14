@@ -38,7 +38,7 @@ public class Lock {
                     
                     JSONObject lockDenied = Command.createLockDenied(username, secret);
                     //broadcast this Lock_denied message to all neighbours
-                    Control.getInstance().broadcast(lockDenied.toJSONString(), "");
+                    Control.getInstance().broadcast(lockDenied.toJSONString());
 
                 } else {
                     //If the user is not in the local storage,
@@ -53,7 +53,7 @@ public class Lock {
                         closeConnection = false;
                     }
                     else{
-                        Control.getInstance().broadcast(msg, con.getRemoteId());
+                        Control.getInstance().broadcast(msg);
                     }
                 }
             }
