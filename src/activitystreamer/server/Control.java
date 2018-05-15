@@ -144,7 +144,7 @@ public class Control extends Thread {
     public synchronized void sendBufferedMsg(Connection con){
         ArrayList<Message> messageList = serverMsgBuffQueue.get(con);
         for(Message bufferedMsg: messageList){
-            String actMsg = Command.createActivityBroadcast(bufferedMsg);
+            String actMsg = Command.createActivityServerBroadcast(bufferedMsg);
             con.writeMsg(actMsg);
         }
     }
