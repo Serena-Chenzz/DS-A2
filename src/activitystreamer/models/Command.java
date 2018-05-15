@@ -1,14 +1,17 @@
 package activitystreamer.models;
 
 import java.util.ArrayList;
+
 import org.json.simple.JSONObject;
+
+import activitystreamer.server.Message;
 
 
 public enum Command {
     AUTHENTICATE, INVALID_MESSAGE, AUTHENTICATION_FAIL, AUTHENTICATION_SUCCESS, LOGIN, LOGIN_SUCCESS, 
     REDIRECT, LOGIN_FAILED, LOGOUT, ACTIVITY_MESSAGE, SERVER_ANNOUNCE,
     ACTIVITY_BROADCAST, REGISTER, REGISTER_FAILED, REGISTER_SUCCESS, LOCK_REQUEST, 
-    LOCK_DENIED, LOCK_ALLOWED;
+    LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_ACKNOWLEDGEMENT;
 
 
     public static boolean contains(String commandName) {
@@ -206,13 +209,37 @@ public enum Command {
 	}
     
     @SuppressWarnings("unchecked")
-	public static String createActivityBroadcast(String string, JSONObject activity) {
+	public static String createActivityServerBroadcast(Message msg) {
 		JSONObject obj = new JSONObject();
+        obj.put("command", Command.ACTIVITY_BROADCAST.toString());
+        obj.put("activity", msg.getActivity());
+        obj.put("timestamp", msg.getTimeStamp());
+        obj.put("sender_ip_address", msg.getSenderIp());
+        obj.put("sender_port_num", msg.getPortNum());
+        return obj.toJSONString();
+		
+	} 
+    
+    @SuppressWarnings("unchecked")
+    public static String createActivityBroadcast(JSONObject activity) {
+        JSONObject obj = new JSONObject();
         obj.put("command", Command.ACTIVITY_BROADCAST.toString());
         obj.put("activity", activity);
        return obj.toJSONString();
-		
-	}    
+        
+    }    
+    
+    @SuppressWarnings("unchecked")
+    public static String createActivityAcknowledgemnt(long timestamp, String senderIp, int portNum){
+        JSONObject obj = new JSONObject();
+        obj.put("command", Command.ACTIVITY_ACKNOWLEDGEMENT.toString());
+        obj.put("timestamp", timestamp);
+        obj.put("sender_ip_address", senderIp);
+        obj.put("sender_port_num", portNum); 
+        return obj.toJSONString();
+    }
+    
+    
     //The following methods are used to check if a command message is in a right format
     //For Register, Lock_Request, Lock_Denied, Lock_Allowed and Login
     public static boolean checkValidCommandFormat1(JSONObject obj){
@@ -282,6 +309,15 @@ public enum Command {
     //For Activity_broadcast
     public static boolean checkValidActivityBroadcast(JSONObject obj){
         if (obj.containsKey("command")&& obj.containsKey("activity")){
+            return true;
+        }
+        return false;
+    }
+    
+    //For Activity_acknowledgement
+    public static boolean checkValidActivityAcknowledgment(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("activity")&& obj.containsKey("timestamp")&& 
+                obj.containsKey("sender_ip_address")&& obj.containsKey("sender_port_num")){
             return true;
         }
         return false;

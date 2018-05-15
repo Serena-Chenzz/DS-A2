@@ -43,7 +43,6 @@ public class LockDenied {
                 Control.getInstance().checkAllLocks(con,msg);
                 Control.getInstance().deleteLocalUser(username,secret);
                 Control.getInstance().deleteFromPendingList(username, secret);
-                Control.getInstance().broadcast(msg);
                 closeConnection = false;
                 }
         }catch(ParseException e){

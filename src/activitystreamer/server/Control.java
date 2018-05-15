@@ -7,6 +7,9 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Queue;
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,15 +33,22 @@ public class Control extends Thread {
     private static ArrayList<String> pendingNeighbors;
     //This userlist is to store all user information locally in memory
     private static ArrayList<User> localUserList;
+    //Save the list of connected users plus timestamp and its connections
+    private static HashMap<Connection, String> userConnections = new HashMap<Connection, String>();
     //This registerList is a pending list for all registration applications
     private static HashMap<Connection, User> registerPendingList;
     private static String uniqueId; // unique id for a server
     protected static boolean term = false;
     private static Listener listener;
+    //Create a pending queue for each neighbor to serve as message buffer
+    private static HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue;
+    //String will be like "timestamp,senderId,senderPort"
+    private static HashMap<Connection, String> serverMsgAckQueue;
 
     protected static Control control = null;
     protected static Load serverLoad;
-
+    
+    
     public static Load getServerLoad() {
         return serverLoad;
     }
@@ -62,6 +72,8 @@ public class Control extends Thread {
         registerPendingList = new HashMap<Connection, User>();
         serverLoad = new Load();
         uniqueId = Settings.getLocalHostname() + " " + Settings.getLocalPort();
+        serverMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
+        serverMsgAckQueue = new HashMap<Connection, String>();
         // start a listener
         try {
             listener = new Listener();
@@ -81,9 +93,63 @@ public class Control extends Thread {
         new ServerAnnounce();
 
     }
+    public synchronized HashMap<Connection, String> getUserConnections(){
+        return userConnections;
+    }
+    
+    public synchronized void updateAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
+        serverMsgAckQueue.put(con, timestamp + " " +senderIp + " " + senderPort);
+    }
+    
+    public synchronized boolean checkAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
+        String latestMsg = serverMsgAckQueue.get(con);
+        String currMsg = timestamp + " " +senderIp + " " + senderPort;
+        if (latestMsg.equals(currMsg)){
+            return false;
+        }
+        return true;
+    }
+    
+    //Add the message into the buffer queue
+    public synchronized boolean addMessageToBufferQueue(Message ackMsg, Connection con){
+        ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
+        if (targetList != null){
+            targetList.add(ackMsg);
+            return true;
+        } 
+        return false;
+    }
     
     
-    public void createServerConnection(String hostname, int port) {
+    public synchronized boolean removeMessageFromBufferQueue(long timestamp, String senderIp, int senderPort, Connection con){
+        ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
+        try{
+            if (targetList != null){
+                for (Message msg:targetList ){
+                    if ((msg.getTimeStamp()== timestamp)&&(msg.getSenderIp().equals(senderIp))
+                         && (msg.getPortNum()==senderPort)){
+                        targetList.remove(msg);
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }
+        catch (NoSuchElementException e){
+            log.error("Fail to remove the message. " + e.toString());
+        }
+        return false;
+    }
+    
+    public synchronized void sendBufferedMsg(Connection con){
+        ArrayList<Message> messageList = serverMsgBuffQueue.get(con);
+        for(Message bufferedMsg: messageList){
+            String actMsg = Command.createActivityBroadcast(bufferedMsg);
+            con.writeMsg(actMsg);
+        }
+    }
+    
+    public synchronized void createServerConnection(String hostname, int port) {
         try {
                 Connection con = outgoingConnection(new Socket(hostname, port));
                 JSONObject authenticate = Command.createAuthenticate(Settings.getSecret(), uniqueId);
@@ -144,7 +210,7 @@ public class Control extends Thread {
                                     String remoteId = (String)userInput.get("remoteId");
                                     con.setRemoteId(remoteId);
                                     // Send all neighbors information to the new server
-                                    ArrayList neighborInfo = new ArrayList<String>();
+                                    ArrayList<String> neighborInfo = new ArrayList<String>();
                                     
                                     for(Connection nei : neighbors){
                                         neighborInfo.add( nei.getRemoteId());                                            
@@ -155,6 +221,15 @@ public class Control extends Thread {
                                     
                                     connectionServers.put(remoteId, new ArrayList<String>());
                                     neighbors.add(con);
+                                    if (serverMsgBuffQueue.containsKey(con)){
+                                        //We need to send all the buffered messages
+                                        sendBufferedMsg(con);  
+                                    }
+                                    else{
+                                        //Initialize message queue
+                                        serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                        serverMsgAckQueue.put(con, null);
+                                    }
                                     log.debug("Add neighbor: " + con.getRemoteId());
                                 }
                                 return auth.getResponse();
@@ -172,6 +247,16 @@ public class Control extends Thread {
                                 // Add connection into neighbor list
                                 connectionServers.put(remoteId, new ArrayList<String>());
                                 neighbors.add(con);
+                                //First, we need to check whether this connection is an old connection or not
+                                if (serverMsgBuffQueue.containsKey(con)){
+                                    //We need to send all the buffered messages
+                                    sendBufferedMsg(con);  
+                                }
+                                else{
+                                    //Initialize message queue
+                                    serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                    serverMsgAckQueue.put(con, null);
+                                }
                                 pendingNeighbors.remove(remoteId);
                                 log.debug("Add neighbor: " + con.getRemoteId());
                                 
@@ -317,6 +402,17 @@ public class Control extends Thread {
                                 ActivityBroadcast actBroad = new ActivityBroadcast(con, msg);
                                 return actBroad.getResponse();
                             }
+                        case ACTIVITY_ACKNOWLEDGEMENT:
+                            if (!Command.checkValidActivityAcknowledgment(userInput)){
+                                String invalidAc = Command.createInvalidMessage("Invalid ActivityAcknowledgement Message Format");
+                                con.writeMsg(invalidAc);
+                                return true;
+                            }
+                            else{
+                                ActivityAcknowledgement actAck = new ActivityAcknowledgement(con, msg);
+                                return actAck.getResponse();
+                            }
+                            
                         case INVALID_MESSAGE:
                             //First, check its informarion format
                             if (!Command.checkValidCommandFormat2(userInput)){

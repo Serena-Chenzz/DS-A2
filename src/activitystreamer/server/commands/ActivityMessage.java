@@ -11,13 +11,15 @@ import activitystreamer.models.Command;
 import activitystreamer.server.Connection;
 import activitystreamer.server.Control;
 import activitystreamer.server.ControlBroadcast;
+import activitystreamer.server.Message;
 
 public class ActivityMessage {
 	
 	private boolean closeConnection=false;
 	private final Logger log = LogManager.getLogger();
 
-	public ActivityMessage(Connection con, String msg) {
+	@SuppressWarnings("unchecked")
+    public ActivityMessage(Connection con, String msg) {
 		
 		JSONParser parser = new JSONParser();
         JSONObject message;
@@ -33,20 +35,31 @@ public class ActivityMessage {
             }
             log.debug("check :"+username+"/"+secret);
             if(username.equals("anonymous")) {//Anonymous logins
-            	//broadCast jsonString
-        		String actBroad = Command.createActivityBroadcast(msg, activity);
-        		ControlBroadcast.broadcastClients(actBroad);
+        		//Create a message and store them inside the queues
+        		Message newMsg = new Message(con, activity);
+        		Control.getInstance().addMessageToBufferQueue(newMsg, con);
+        		//Broadcast this new message to servers
+        		String actBroad = Command.createActivityServerBroadcast(newMsg);
         		Control.getInstance().broadcast(actBroad);
+        		String actBroadClient=Command.createActivityBroadcast(activity);
+        		ControlBroadcast.broadcastClients(actBroadClient,newMsg.getTimeStamp());
                 closeConnection = false;
                 return;
             }
             if(Login.checkUserLoggedIn(username)) {
             	//Start checking users
                 if(Control.getInstance().checkLocalUserAndSecret(username,secret)) {  
-                	//broadCast jsonString
-            		String actBroad = Command.createActivityBroadcast(msg, activity);
-            		ControlBroadcast.broadcastClients(actBroad);
-            		Control.getInstance().broadcast(actBroad);
+                	
+            		
+            		//Create a message and store them inside the queues
+                    Message newMsg2 = new Message(con, activity);
+                    Control.getInstance().addMessageToBufferQueue(newMsg2, con);
+                    
+                    //broadCast jsonString
+                    String actBroad = Command.createActivityServerBroadcast(newMsg2);
+                    Control.getInstance().broadcast(actBroad);
+                    String actBroadClient=Command.createActivityBroadcast(activity);
+                    ControlBroadcast.broadcastClients(actBroadClient,newMsg2.getTimeStamp());
                     closeConnection = false;
                     return;
                 }else { 

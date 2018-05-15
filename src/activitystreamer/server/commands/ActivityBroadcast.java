@@ -28,13 +28,27 @@ public class ActivityBroadcast {
                 con.writeMsg(Command.createInvalidMessage(info));
                 closeConnection = true;
             } else {
-            	ControlBroadcast.broadcastClients(msg);
-                Control.getInstance().broadcast(msg);
-        		closeConnection=false;
+                //Send back an acknowledgement to the server which sent the activity message
+                long timestamp = (long)message.get("timestamp");
+                String senderIp = (String)message.get("sender_ip_address");
+                int portNum = (int)message.get("sender_port_num");
+                JSONObject activity =(JSONObject)message.get("activity");
+                //If it has been the latest message in the server side, the server will discard it
+                if (Control.getInstance().checkAckQueue(timestamp, senderIp, portNum, con)){
+                    Control.getInstance().updateAckQueue(timestamp, senderIp, portNum, con);
+                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, portNum);
+                    con.writeMsg(ackMsg);
+                    String brdClient = Command.createActivityBroadcast(activity);
+                	ControlBroadcast.broadcastClients(brdClient, timestamp);
+            		closeConnection=false;
+            		}
             }
         } catch (ParseException e) {
         	Command.createInvalidMessage("JSON parse error while parsing message");
         	closeConnection=true;
+        } catch (ClassCastException e2){
+            Command.createInvalidMessage("Invalid Content Type");
+            closeConnection=true;
         }
 	}
 		

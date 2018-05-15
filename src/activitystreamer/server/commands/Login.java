@@ -16,8 +16,7 @@ import activitystreamer.server.Control;
 
 public class Login {
     
-	//Save the list of connected users and its connections
-    private static HashMap<Connection, String> userConnections = new HashMap<Connection, String>(); 
+	 
     private Connection conn;
 	private String msg;
     private static final Logger log = LogManager.getLogger();
@@ -45,7 +44,7 @@ public class Login {
                 JSONObject loginSuccess = Command.createLoginSuccess(username);
                 conn.writeMsg(loginSuccess.toJSONString());
                 closeConnection = false;
-                addUser(conn,username);
+                addUser(conn,username +" "+ System.currentTimeMillis());
 				Control.setConnectionClients(conn);
 
             }else if(Control.getInstance().checkLocalUserAndSecret(username,secret)) {  
@@ -53,7 +52,7 @@ public class Login {
                 JSONObject loginSuccess = Command.createLoginSuccess(username);
                 conn.writeMsg(loginSuccess.toJSONString());
                 closeConnection = false;
-                addUser(conn,username);
+                addUser(conn,username+" "+ System.currentTimeMillis());
                 Control.setConnectionClients(conn);
 
             }else { 
@@ -72,10 +71,11 @@ public class Login {
 
     //Check whether this user is logged in
     public static boolean checkUserLoggedIn(String username) {
-    	for (Map.Entry<Connection,String> user : userConnections.entrySet()) {
+    	for (Map.Entry<Connection,String> user : Control.getInstance().getUserConnections().entrySet()) {
     		Connection key = user.getKey();
-    		String value = user.getValue();
-    		if (value.equals(username)) {
+    		String[] value = user.getValue().split(" ");
+    		String targetName = value[0];
+    		if (targetName.equals(username)) {
     			return true;
     		}
 		}
@@ -83,17 +83,16 @@ public class Login {
     }
 
     public static void addUser(Connection con, String username) {
-		userConnections.put(con, username);
+        Control.getInstance().getUserConnections().put(con, username);
 	}
     
     //Logout user, remove from list
     public static void logoutUser(Connection con) {
-    	for (Map.Entry<Connection,String> user : userConnections.entrySet()) {
+    	for (Map.Entry<Connection,String> user : Control.getInstance().getUserConnections().entrySet()) {
     		Connection key = user.getKey();
-    		String value = user.getValue();
     		if (key==con) {
     			//log.debug("deleted "+key+value);
-    			userConnections.remove(key);
+    		    Control.getInstance().getUserConnections().remove(key);
     			break;
     		}
 		}

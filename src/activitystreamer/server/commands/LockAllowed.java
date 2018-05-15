@@ -42,11 +42,6 @@ public class LockAllowed {
                         //If the client is registered in this server, it will return back the message
                         closeConnection = false;
                     }
-                    else{
-                        //If the client is not registerd in this server, it will broadcast this lock_allowed message.
-                        Control.getInstance().broadcast(msg);
-                        closeConnection = false;
-                    }
                 }
                 
             }
