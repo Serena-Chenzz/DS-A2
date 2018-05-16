@@ -7,8 +7,6 @@ import java.util.HashMap;
 import java.util.UUID;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Queue;
-import java.util.LinkedList;
 import java.util.NoSuchElementException;
 
 import org.apache.logging.log4j.LogManager;
@@ -320,6 +318,17 @@ public class Control extends Thread {
                             }
                             else{
                                 Register reg = new Register(msg, con);
+                                return reg.getCloseCon();
+                            }
+                            
+                        case REGISTER_SUCCESS_BROADCAST:
+                            if (!Command.checkValidCommandFormat1(userInput)){
+                                String invalidReg = Command.createInvalidMessage("Invalid Register_Success_Broadcast Message Format");
+                                con.writeMsg(invalidReg);
+                                return true;
+                            }
+                            else{
+                                RegisterSuccessBroadcast reg = new RegisterSuccessBroadcast(msg, con);
                                 return reg.getCloseCon();
                             }
         

@@ -40,6 +40,9 @@ public class LockAllowed {
                     //local register pending list.
                     if (Control.getInstance().changeInPendingList(username, secret)){
                         //If the client is registered in this server, it will return back the message
+                        //Also, broadcast register success message to all other servers
+                        String registerSucMsg = Command.createRegisterSuccessBroadcast(username, secret).toJSONString();
+                        Control.getInstance().broadcast(registerSucMsg);
                         closeConnection = false;
                     }
                 }

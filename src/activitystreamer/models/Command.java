@@ -11,7 +11,7 @@ public enum Command {
     AUTHENTICATE, INVALID_MESSAGE, AUTHENTICATION_FAIL, AUTHENTICATION_SUCCESS, LOGIN, LOGIN_SUCCESS, 
     REDIRECT, LOGIN_FAILED, LOGOUT, ACTIVITY_MESSAGE, SERVER_ANNOUNCE,
     ACTIVITY_BROADCAST, REGISTER, REGISTER_FAILED, REGISTER_SUCCESS, LOCK_REQUEST, 
-    LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_ACKNOWLEDGEMENT;
+    LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST;
 
 
     public static boolean contains(String commandName) {
@@ -131,6 +131,16 @@ public enum Command {
     } 
     
     @SuppressWarnings("unchecked")
+    public static JSONObject createRegisterSuccessBroadcast(String username, String secret){
+        JSONObject obj = new JSONObject();
+        obj.put("command", REGISTER_SUCCESS_BROADCAST.toString());
+        obj.put("username", username);
+        obj.put("secret", secret);     
+        return obj;
+    }
+    
+    
+    @SuppressWarnings("unchecked")
     public static JSONObject createRegisterFailed(String username){
         JSONObject obj = new JSONObject();
         obj.put("command", REGISTER_FAILED.toString());
@@ -211,7 +221,7 @@ public enum Command {
     @SuppressWarnings("unchecked")
 	public static String createActivityServerBroadcast(Message msg) {
 		JSONObject obj = new JSONObject();
-        obj.put("command", Command.ACTIVITY_BROADCAST.toString());
+        obj.put("command", Command.ACTIVITY_SERVER_BROADCAST.toString());
         obj.put("activity", msg.getActivity());
         obj.put("timestamp", msg.getTimeStamp());
         obj.put("sender_ip_address", msg.getSenderIp());
@@ -241,7 +251,7 @@ public enum Command {
     
     
     //The following methods are used to check if a command message is in a right format
-    //For Register, Lock_Request, Lock_Denied, Lock_Allowed and Login
+    //For Register, Lock_Request, Lock_Denied, Lock_Allowed, Login and Register_Success_Broadcast
     public static boolean checkValidCommandFormat1(JSONObject obj){
         if (obj.containsKey("command")&& obj.containsKey("username")&&obj.containsKey("secret")){
             return true;

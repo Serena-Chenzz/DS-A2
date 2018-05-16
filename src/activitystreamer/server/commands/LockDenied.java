@@ -37,11 +37,9 @@ public class LockDenied {
                 String secret= message.get("secret").toString();
                 
                 //Record the status to this server
-                //Delete this user from local userlist
                 //Delete this user from the pending list
                 //And broadcast the lock_denied
                 Control.getInstance().checkAllLocks(con,msg);
-                Control.getInstance().deleteLocalUser(username,secret);
                 Control.getInstance().deleteFromPendingList(username, secret);
                 closeConnection = false;
                 }
