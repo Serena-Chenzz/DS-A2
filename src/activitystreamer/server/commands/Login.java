@@ -83,7 +83,12 @@ public class Login {
     }
 
     public static void addUser(Connection con, String username) {
-        Control.getInstance().getUserConnections().put(con, username);
+        //We add a login time for each user
+        long timestamp = System.currentTimeMillis();
+        Control.getInstance().getUserConnections().put(con, username + " "+ timestamp);
+        //Also add this connection to clientMsgBuffQueue
+        Control.getInstance().initiateClientMsgBufferQueue(con);
+        
 	}
     
     //Logout user, remove from list
@@ -96,6 +101,8 @@ public class Login {
     			break;
     		}
 		}
+    	//Also remove from clientMsgBuff
+    	Control.getInstance().removeClientFromMsgBuffer(con);
     }
 
 	public boolean getResponse() {

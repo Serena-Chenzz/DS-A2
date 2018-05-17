@@ -13,6 +13,13 @@ public class Message {
         this.message = activity;       
     }
     
+    //Or we can create from timestamp, clientConnection and activity
+    public Message(Connection clientConnection, long timestamp, JSONObject activity ){
+        this.timestamp = timestamp;
+        this.clientConnection = clientConnection;
+        this.message =activity;
+    }
+    
     public long getTimeStamp(){
         return this.timestamp;
     }
@@ -43,6 +50,10 @@ public class Message {
         message.put("sender_port_num", this.clientConnection.getSocket().getPort());
         message.put("activity_content", this.message);
         return message;
+    }
+    
+    public String toString(){
+        return (this.timestamp + " ") + this.clientConnection +" "+ this.message.toJSONString();
     }
 
 }

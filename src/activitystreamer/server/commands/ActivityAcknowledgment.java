@@ -6,16 +6,18 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.util.ArrayList;
+
 import activitystreamer.models.Command;
 import activitystreamer.server.Connection;
 import activitystreamer.server.Control;
-import activitystreamer.server.ControlBroadcast;
+import activitystreamer.server.Message;
 
-public class ActivityAcknowledgement {
+public class ActivityAcknowledgment {
     private boolean closeConnection=false;
     private final Logger log = LogManager.getLogger();
 
-    public ActivityAcknowledgement(Connection con, String msg) {
+    public ActivityAcknowledgment(Connection con, String msg) {
         JSONParser parser = new JSONParser();
         JSONObject message;
         try{
@@ -24,6 +26,9 @@ public class ActivityAcknowledgement {
             String msgSenderIp = (String)message.get("sender_ip_address");
             int msgPortNum = (int)message.get("sender_port_num");
             Control.getInstance().removeMessageFromBufferQueue(msgTimestamp, msgSenderIp, msgPortNum,con);
+            //Tell activityBroadcast thread to start broadcasting next message
+            Control.getInstance().activateMessageQueue(con);
+            
         }
         catch (ParseException e) {
             Command.createInvalidMessage("JSON parse error while parsing message");

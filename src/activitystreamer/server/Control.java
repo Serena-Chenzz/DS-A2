@@ -40,18 +40,32 @@ public class Control extends Thread {
     private static Listener listener;
     //Create a pending queue for each neighbor to serve as message buffer
     private static HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue;
+    private static HashMap<Connection, Boolean> serverMsgBuffActivator;
+    //A buffer queue to store the messages sent to clients
+    private static HashMap<Connection, ArrayList<Message>> clientMsgBuffQueue;
     //String will be like "timestamp,senderId,senderPort"
     private static HashMap<Connection, String> serverMsgAckQueue;
 
     protected static Control control = null;
     protected static Load serverLoad;
     
+    public synchronized static HashMap<Connection, Boolean> getServerMsgBuffActivator(){
+        return serverMsgBuffActivator;
+    }
     
-    public static Load getServerLoad() {
+    public synchronized static HashMap<Connection, ArrayList<Message>> getServerMsgBuffQueue(){
+        return serverMsgBuffQueue;
+    }
+    
+    public synchronized static HashMap<Connection, ArrayList<Message>> getClientMsgBuffQueue(){
+        return clientMsgBuffQueue;
+    }
+    
+    public synchronized static Load getServerLoad() {
         return serverLoad;
     }
 
-    public static Control getInstance() {
+    public synchronized static Control getInstance() {
         if (control == null) {
             control = new Control();
         }
@@ -72,6 +86,8 @@ public class Control extends Thread {
         uniqueId = Settings.getLocalHostname() + " " + Settings.getLocalPort();
         serverMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
         serverMsgAckQueue = new HashMap<Connection, String>();
+        clientMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
+        serverMsgBuffActivator = new HashMap<Connection, Boolean>();
         // start a listener
         try {
             listener = new Listener();
@@ -80,6 +96,7 @@ public class Control extends Thread {
             log.fatal("failed to startup a listening thread: " + e1);
             System.exit(-1);
         }
+        start();
     }
 
     public void initiateConnection() {
@@ -87,12 +104,74 @@ public class Control extends Thread {
         if (Settings.getRemoteHostname() != null) {
             createServerConnection(Settings.getRemoteHostname(), Settings.getRemotePort());
         }
-        // start server announce
-        new ServerAnnounce();
+        
 
     }
+    
+    public void run() {
+        // start server announce
+        Thread serverAnnouce = new ServerAnnounce();
+        serverAnnouce.start();
+        // start broadcasting messages
+        Thread activityServerBrd = new ActivityServerBroadcastThread();
+        activityServerBrd.start();
+        //start client broadcasting messages
+        Thread activityClientBrd = new ActivityClientBroadcastThread();
+        activityClientBrd.start();
+    }
+    
+    public synchronized void deactivateMessageQueue(Connection con){
+        serverMsgBuffActivator.put(con, false);
+    }
+    
+    public synchronized void activateMessageQueue(Connection con){
+        serverMsgBuffActivator.put(con, true);
+    }
+    public synchronized void activateAllMessageQueue(){
+        if (!serverMsgBuffActivator.isEmpty()){
+            for(Connection con: serverMsgBuffActivator.keySet()){
+                serverMsgBuffActivator.put(con, true);
+            }
+        }
+    }
+    
+    public synchronized void initiateClientMsgBufferQueue(Connection con){
+        clientMsgBuffQueue.put(con, new ArrayList<Message>());  
+    }
+    public synchronized void removeClientFromMsgBuffer(Connection con){
+        clientMsgBuffQueue.remove(con);
+    }
+    
+    public synchronized void addToAllClientMsgBufferQueue(Message msg){
+        
+        for (Connection con: clientMsgBuffQueue.keySet()){
+            ArrayList<Message> targetList = clientMsgBuffQueue.get(con);
+            targetList.add(msg);
+        }
+       
+    }
+    
+    public synchronized void removeFromClientMsgBufferQueue(Connection con, Message msg){
+        if (clientMsgBuffQueue.containsKey(con)){
+            ArrayList<Message> targetList = clientMsgBuffQueue.get(con);
+            targetList.remove(msg);
+        }
+    }
+    
     public synchronized HashMap<Connection, String> getUserConnections(){
         return userConnections;
+    }
+    
+    public synchronized void cleanMessageBufferQueue(Connection con){
+        if (serverMsgBuffQueue.containsKey(con)){
+            serverMsgBuffQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanAckQueue(Connection con){
+        if (serverMsgAckQueue.containsKey(con)){
+            serverMsgAckQueue.remove(con);
+        }
     }
     
     public synchronized void updateAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
@@ -109,12 +188,13 @@ public class Control extends Thread {
     }
     
     //Add the message into the buffer queue
-    public synchronized boolean addMessageToBufferQueue(Message ackMsg, Connection con){
-        ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
-        if (targetList != null){
+    public synchronized boolean addMessageToBufferQueue(Message ackMsg){
+        log.info("Adding " + ackMsg);
+        for (Connection con:  neighbors){
+            ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
             targetList.add(ackMsg);
-            return true;
-        } 
+            System.out.println("Server: " + serverMsgBuffQueue);
+        }
         return false;
     }
     
@@ -138,14 +218,7 @@ public class Control extends Thread {
         }
         return false;
     }
-    
-    public synchronized void sendBufferedMsg(Connection con){
-        ArrayList<Message> messageList = serverMsgBuffQueue.get(con);
-        for(Message bufferedMsg: messageList){
-            String actMsg = Command.createActivityServerBroadcast(bufferedMsg);
-            con.writeMsg(actMsg);
-        }
-    }
+  
     
     public synchronized void createServerConnection(String hostname, int port) {
         try {
@@ -219,15 +292,12 @@ public class Control extends Thread {
                                     
                                     connectionServers.put(remoteId, new ArrayList<String>());
                                     neighbors.add(con);
-                                    if (serverMsgBuffQueue.containsKey(con)){
-                                        //We need to send all the buffered messages
-                                        sendBufferedMsg(con);  
-                                    }
-                                    else{
-                                        //Initialize message queue
-                                        serverMsgBuffQueue.put(con, new ArrayList<Message>());
-                                        serverMsgAckQueue.put(con, null);
-                                    }
+                                    
+                                    //Initialize message queue
+                                    serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                    serverMsgBuffActivator.put(con, true);
+                                    serverMsgAckQueue.put(con, null);
+                                    
                                     log.debug("Add neighbor: " + con.getRemoteId());
                                 }
                                 return auth.getResponse();
@@ -245,21 +315,17 @@ public class Control extends Thread {
                                 // Add connection into neighbor list
                                 connectionServers.put(remoteId, new ArrayList<String>());
                                 neighbors.add(con);
-                                //First, we need to check whether this connection is an old connection or not
-                                if (serverMsgBuffQueue.containsKey(con)){
-                                    //We need to send all the buffered messages
-                                    sendBufferedMsg(con);  
-                                }
-                                else{
-                                    //Initialize message queue
-                                    serverMsgBuffQueue.put(con, new ArrayList<Message>());
-                                    serverMsgAckQueue.put(con, null);
-                                }
+                                
+                                //Initialize message queue
+                                serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                serverMsgBuffActivator.put(con, true);
+                                serverMsgAckQueue.put(con, null);
+                                
                                 pendingNeighbors.remove(remoteId);
                                 log.debug("Add neighbor: " + con.getRemoteId());
                                 
                                 
-                                // creat full connection
+                                // create full connection
                                 ArrayList<String> neighborInfo = (ArrayList<String>)userInput.get("info");
                                 for(String neiId : neighborInfo){
                                     String[] neiDetail = neiId.split(" ");
@@ -401,14 +467,14 @@ public class Control extends Thread {
                                 return actMess.getResponse();
                             }
                             
-                        case ACTIVITY_BROADCAST:
-                            if (!Command.checkValidActivityBroadcast(userInput)){
-                                String invalidAc = Command.createInvalidMessage("Invalid ActivityBroadcast Message Format");
+                        case ACTIVITY_SERVER_BROADCAST:
+                            if (!Command.checkValidActivityServerBroadcast(userInput)){
+                                String invalidAc = Command.createInvalidMessage("Invalid ActivityServerBroadcast Message Format");
                                 con.writeMsg(invalidAc);
                                 return true;
                             }
                             else{
-                                ActivityBroadcast actBroad = new ActivityBroadcast(con, msg);
+                                ActivityServerBroadcast actBroad = new ActivityServerBroadcast(con, msg);
                                 return actBroad.getResponse();
                             }
                         case ACTIVITY_ACKNOWLEDGEMENT:
@@ -418,7 +484,7 @@ public class Control extends Thread {
                                 return true;
                             }
                             else{
-                                ActivityAcknowledgement actAck = new ActivityAcknowledgement(con, msg);
+                                ActivityAcknowledgment actAck = new ActivityAcknowledgment(con, msg);
                                 return actAck.getResponse();
                             }
                             
@@ -590,6 +656,9 @@ public class Control extends Thread {
             neighbors.remove(con);
             connectionServers.remove(con.getRemoteId());
             registerPendingList.remove(con);
+            cleanMessageBufferQueue(con);
+            cleanAckQueue(con);
+            
         }
     }
 

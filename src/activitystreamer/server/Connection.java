@@ -26,7 +26,7 @@ public class Connection extends Thread {
     private Socket socket;
     private boolean term = false;
     private String remoteId = "";
-    //Add a pair of starting and ending time to calculate elapsed time
+    //We record starting time to calculate the disconnection time
     private long timerStart = 0;
     
 
@@ -42,7 +42,7 @@ public class Connection extends Thread {
         this.socket = socket;
         open = true;
 
-//        remoteId = socket.getInetAddress() + ":" + socket.getPort();
+        //remoteId = socket.getInetAddress() + ":" + socket.getPort();
         start();
     }
 
@@ -84,7 +84,7 @@ public class Connection extends Thread {
 
     public void closeCon() {
         if (open) {
-            log.info("closing connection " + Settings.socketAddress(socket));
+            //log.info("closing connection " + Settings.socketAddress(socket));
             try {
                 term = true;
                 inreader.close();
@@ -102,7 +102,9 @@ public class Connection extends Thread {
         while (open){
             String data = "";
             try {
-                //If Control.process() return true, then while loop finish
+                //Start sending buffered messages
+                Control.getInstance().activateAllMessageQueue();
+                //If Control.process() returns true, then while loop finishes
                 while (!term && (data = inreader.readLine()) != null) {
                     //reset the starting time
                     this.timerStart = 0;
@@ -112,7 +114,7 @@ public class Connection extends Thread {
                 closeCon();
             }
             catch (SocketException e){
-                log.error("connection error: " + e.toString());
+                //log.error("connection error: " + e.toString());
                 //Start the timer
                 if (this.timerStart == 0){
                     this.timerStart = System.currentTimeMillis();
@@ -126,12 +128,12 @@ public class Connection extends Thread {
                 }
             }
             catch (IOException e) {
-                log.error("connection " + Settings.socketAddress(socket) + " closed with exception: " + e);
+                //log.error("connection " + Settings.socketAddress(socket) + " closed with exception: " + e);
                 Control.getInstance().connectionClosed(this);
                 open = false;
             }
         }
-        
+        log.error("connection " + Settings.socketAddress(socket) + " closed...");
         Control.getInstance().connectionClosed(this);
         closeCon();
     }

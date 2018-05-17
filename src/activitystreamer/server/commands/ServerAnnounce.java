@@ -22,7 +22,7 @@ public class ServerAnnounce extends Thread{
     private final static Logger log = LogManager.getLogger();
     
     public ServerAnnounce() {
-    	start();
+    	//start();
     }
     
     

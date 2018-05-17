@@ -6,7 +6,7 @@ import org.json.simple.JSONObject;
 
 import activitystreamer.server.Message;
 
-
+//ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST are the commands we added
 public enum Command {
     AUTHENTICATE, INVALID_MESSAGE, AUTHENTICATION_FAIL, AUTHENTICATION_SUCCESS, LOGIN, LOGIN_SUCCESS, 
     REDIRECT, LOGIN_FAILED, LOGOUT, ACTIVITY_MESSAGE, SERVER_ANNOUNCE,
@@ -159,7 +159,7 @@ public enum Command {
     }
     
     @SuppressWarnings("unchecked")
-    public static String createAuthenticateSuccess(ArrayList neighborInfo, String uniqueId) {
+    public static String createAuthenticateSuccess(ArrayList<String> neighborInfo, String uniqueId) {
         JSONObject obj = new JSONObject();
         obj.put("command", AUTHENTICATION_SUCCESS.toString());
         obj.put("info",neighborInfo); 
@@ -237,7 +237,16 @@ public enum Command {
         obj.put("activity", activity);
        return obj.toJSONString();
         
-    }    
+    }  
+    
+    @SuppressWarnings("unchecked")
+    public static String createActivityBroadcast(Message msg) {
+        JSONObject obj = new JSONObject();
+        obj.put("command", Command.ACTIVITY_BROADCAST.toString());
+        obj.put("activity", msg.getActivity());
+        return obj.toJSONString();
+        
+    } 
     
     @SuppressWarnings("unchecked")
     public static String createActivityAcknowledgemnt(long timestamp, String senderIp, int portNum){
@@ -326,6 +335,15 @@ public enum Command {
     
     //For Activity_acknowledgement
     public static boolean checkValidActivityAcknowledgment(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("timestamp")&& 
+                obj.containsKey("sender_ip_address")&& obj.containsKey("sender_port_num")){
+            return true;
+        }
+        return false;
+    }
+    
+    //For Activity_Server_Broadcast
+    public static boolean checkValidActivityServerBroadcast(JSONObject obj){
         if (obj.containsKey("command")&& obj.containsKey("activity")&& obj.containsKey("timestamp")&& 
                 obj.containsKey("sender_ip_address")&& obj.containsKey("sender_port_num")){
             return true;
