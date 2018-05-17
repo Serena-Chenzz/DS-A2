@@ -180,10 +180,12 @@ public class Control extends Thread {
     
     public synchronized boolean checkAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
         String latestMsg = serverMsgAckQueue.get(con);
-        String currMsg = timestamp + " " +senderIp + " " + senderPort;
-        if (latestMsg.equals(currMsg)){
-            return false;
-        }
+        if (latestMsg != null){
+            String currMsg = timestamp + " " +senderIp + " " + senderPort;
+            if (latestMsg.equals(currMsg)){
+                return false;
+            }
+         }
         return true;
     }
     

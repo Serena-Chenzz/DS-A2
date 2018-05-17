@@ -24,7 +24,7 @@ public class ActivityAcknowledgment {
             message = (JSONObject) parser.parse(msg);
             long msgTimestamp = (long)message.get("timestamp");
             String msgSenderIp = (String)message.get("sender_ip_address");
-            int msgPortNum = (int)message.get("sender_port_num");
+            int msgPortNum = ((Number)message.get("sender_port_num")).intValue();
             Control.getInstance().removeMessageFromBufferQueue(msgTimestamp, msgSenderIp, msgPortNum,con);
             //Tell activityBroadcast thread to start broadcasting next message
             Control.getInstance().activateMessageQueue(con);

@@ -35,17 +35,18 @@ public class ActivityServerBroadcastThread extends Thread{
             HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue = Control.getServerMsgBuffQueue();
             HashMap<Connection, Boolean> serverMsgBuffActivator = Control.getServerMsgBuffActivator();
             if (!serverMsgBuffQueue.isEmpty()){
-                for(Connection con: serverMsgBuffActivator.keySet()){
+                for(Connection con: serverMsgBuffQueue.keySet()){
                     if (serverMsgBuffActivator.get(con)){
                         ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
                         if(!targetList.isEmpty()){
+                            //Waiting for acknowledgment, deactivate sending messages
+                            Control.getInstance().deactivateMessageQueue(con);
                             //Broadcast the first message
                             Message msg = targetList.get(0);
                             String broadMsg = Command.createActivityServerBroadcast(msg);
                             log.info("Sending Activity_broadcast message" + msg);
                             con.writeMsg(broadMsg);
-                            //Waiting for acknowledgment, deactivate sending messages
-                            Control.getInstance().deactivateMessageQueue(con);
+                            
                         }
                         
                     }

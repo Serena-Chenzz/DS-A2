@@ -20,6 +20,7 @@ public class ActivityServerBroadcast {
 		JSONParser parser = new JSONParser();
         JSONObject message;
         try {
+            System.out.println("Here");
         	//check that JSON format is valid
             message = (JSONObject) parser.parse(msg);
             //Check that message is received from an Authenticated server
@@ -31,11 +32,13 @@ public class ActivityServerBroadcast {
                 //Send back an acknowledgment to the server which sent the activity message
                 long timestamp = (long)message.get("timestamp");
                 String senderIp = (String)message.get("sender_ip_address");
-                int portNum = (int)message.get("sender_port_num");
+                System.out.println((message.get("sender_port_num").getClass()));
+                int portNum = ((Number)message.get("sender_port_num")).intValue();
                 JSONObject activity =(JSONObject)message.get("activity");
                 //If it has been the latest message in the server side, the server will discard it
                 if (Control.getInstance().checkAckQueue(timestamp, senderIp, portNum, con)){
-                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, portNum);
+                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, (int)portNum);
+                    System.out.println("Sending Acknowledgment...");
                     con.writeMsg(ackMsg);
                     Control.getInstance().updateAckQueue(timestamp, senderIp, portNum, con);
                     
