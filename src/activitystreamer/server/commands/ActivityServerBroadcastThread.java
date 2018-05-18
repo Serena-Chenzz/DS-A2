@@ -7,6 +7,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.ConcurrentModificationException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,26 +37,29 @@ public class ActivityServerBroadcastThread extends Thread{
             //Fetch the latest serverMsgBufferQueue
             HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue = Control.getServerMsgBuffQueue();
             HashMap<Connection, Boolean> serverMsgBuffActivator = Control.getServerMsgBuffActivator();
-            if (!serverMsgBuffQueue.isEmpty()){
-                //Use iterator to avoid concurrency issues
-                Iterator<Entry<Connection, ArrayList<Message>>> it = serverMsgBuffQueue.entrySet().iterator();
-                while(it.hasNext()){
-                    Entry<Connection, ArrayList<Message>> newEntry = it.next();
-                    Connection con = newEntry.getKey();
-                    if (!(serverMsgBuffActivator.get(con)==null)&&serverMsgBuffActivator.get(con)){
-                        ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
-                        if((!(targetList == null))&&(!targetList.isEmpty())){
-                            //Waiting for acknowledgment, deactivate sending messages
-                            Control.getInstance().deactivateMessageQueue(con);
-                            //Broadcast the first message
-                            Message msg = targetList.get(0);
-                            String broadMsg = Command.createActivityServerBroadcast(msg);
-                            log.info("Sending Activity_broadcast message" + msg);
-                            con.writeMsg(broadMsg);
+            try{
+                if (!serverMsgBuffQueue.isEmpty()){
+                    //Use iterator to avoid concurrency issues
+                    for(Iterator<Entry<Connection, ArrayList<Message>>> it = serverMsgBuffQueue.entrySet().iterator();it.hasNext();){
+                        Entry<Connection, ArrayList<Message>> newEntry = it.next();
+                        Connection con = newEntry.getKey();
+                        if (!(serverMsgBuffActivator.get(con)==null)&&serverMsgBuffActivator.get(con)){
+                            ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
+                            if((!(targetList == null))&&(!targetList.isEmpty())){
+                                //Waiting for acknowledgment, deactivate sending messages
+                                Control.getInstance().deactivateMessageQueue(con);
+                                //Broadcast the first message
+                                Message msg = targetList.get(0);
+                                String broadMsg = Command.createActivityServerBroadcast(msg);
+                                log.info("Sending Activity_broadcast message" + msg);
+                                con.writeMsg(broadMsg);
+                            }
+                            
                         }
-                        
                     }
                 }
+            }catch(ConcurrentModificationException e){
+                log.info("Block iterating arrays when modifying it");
             }
         }
         
