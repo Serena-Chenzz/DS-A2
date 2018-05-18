@@ -33,7 +33,8 @@ public class ActivityMessage {
                 secret = message.get("secret").toString();
             }
             log.debug("check :"+username+"/"+secret);
-            if(username.equals("anonymous")) {//Anonymous logins
+            if(username.equals("anonymous")) {
+                //Anonymous logins
         		//Create a message and store them inside the queues
         		Message newMsg = new Message(con, activity);
         		Control.getInstance().addMessageToBufferQueue(newMsg);

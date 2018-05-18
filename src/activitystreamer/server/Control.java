@@ -118,6 +118,7 @@ public class Control extends Thread {
         activityClientBrd.start();
     }
     
+    //Activator Methods
     public synchronized void deactivateMessageQueue(Connection con){
         serverMsgBuffActivator.put(con, false);
     }
@@ -133,6 +134,7 @@ public class Control extends Thread {
         }
     }
     
+    //ClientBufferQueue Methods
     public synchronized void initiateClientMsgBufferQueue(Connection con){
         clientMsgBuffQueue.put(con, new ArrayList<Message>());  
     }
@@ -160,6 +162,7 @@ public class Control extends Thread {
         return userConnections;
     }
     
+  //Methods about ackQueue
     public synchronized void updateAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
         serverMsgAckQueue.put(con, timestamp + " " +senderIp + " " + senderPort);
     }
@@ -175,7 +178,7 @@ public class Control extends Thread {
         return true;
     }
     
-    //Add the message into the buffer queue
+    //Methods about serverMsgBufferQueue
     public synchronized boolean addMessageToBufferQueue(Message ackMsg){
         log.info("Adding " + ackMsg);
         for (Connection con:  neighbors){
@@ -207,7 +210,7 @@ public class Control extends Thread {
         return false;
     }
     
-    
+    //Cleanup methods
     public synchronized void cleanMessageBufferQueue(Connection con){
         if (serverMsgBuffQueue.containsKey(con)){
             serverMsgBuffQueue.remove(con);
@@ -223,6 +226,12 @@ public class Control extends Thread {
     public synchronized void cleanClientMsgBuffQueue(Connection con){
         if (clientMsgBuffQueue.containsKey(con)){
             clientMsgBuffQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanServerMsgBuffActivator(Connection con){
+        if (serverMsgBuffActivator.containsKey(con)){
+            serverMsgBuffActivator.remove(con);
         }
     }
   
@@ -683,7 +692,8 @@ public class Control extends Thread {
             registerPendingList.remove(con);
             cleanMessageBufferQueue(con);
             cleanAckQueue(con);
-            
+            cleanClientMsgBuffQueue(con);
+            cleanServerMsgBuffActivator(con);
         }
     }
 

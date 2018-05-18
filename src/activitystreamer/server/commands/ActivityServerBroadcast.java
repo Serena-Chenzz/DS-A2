@@ -25,7 +25,7 @@ public class ActivityServerBroadcast {
             message = (JSONObject) parser.parse(msg);
             //Check that message is received from an Authenticated server
             if (!Control.getInstance().containsServer(con.getRemoteId())) {
-                String info = "Lock_Request is not from an authenticated server";
+                String info = "Activity_Server_Broadcast is not from an authenticated server";
                 con.writeMsg(Command.createInvalidMessage(info));
                 closeConnection = true;
             } else {

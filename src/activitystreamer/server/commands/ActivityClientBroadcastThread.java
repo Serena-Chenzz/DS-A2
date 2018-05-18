@@ -38,7 +38,7 @@ public class ActivityClientBroadcastThread extends Thread{
                     //Broadcast the first message
                     //For clients,we don't wait for acknowledgments
                     ArrayList<Message> targetList = clientMsgBuffQueue.get(con);
-                    if(!(targetList ==null)&&(!targetList.isEmpty())){
+                    if((!(targetList == null))&&(!targetList.isEmpty())){
                         System.out.println("start sending...");
                         //Also get the client list to check the timestamp
                         String userInfo = Control.getInstance().getUserConnections().get(con);
