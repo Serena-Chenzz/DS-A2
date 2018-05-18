@@ -109,7 +109,7 @@ public class Control extends Thread {
     public void run() {
         // start server announce
         Thread serverAnnouce = new ServerAnnounce();
-        //serverAnnouce.start();
+        serverAnnouce.start();
         // start broadcasting messages
         Thread activityServerBrd = new ActivityServerBroadcastThread();
         activityServerBrd.start();
@@ -287,6 +287,13 @@ public class Control extends Thread {
                             if (!Command.checkValidAuthenticate(userInput)){
                                 String invalidAuth = Command.createInvalidMessage("Invalid Authenticate Message Format");
                                 con.writeMsg(invalidAuth);
+                                return true;
+                            }
+                            //If an old connection sends an authentication message, it means a crashed server recovers within 60s. We need 
+                            //to avoid this happening
+                            else if (neighbors.contains(con)){
+                                String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
+                                con.writeMsg(invalidRestart);
                                 return true;
                             }
                             else{

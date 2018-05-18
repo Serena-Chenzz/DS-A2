@@ -2,6 +2,8 @@ package activitystreamer.server.commands;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,8 +37,12 @@ public class ActivityServerBroadcastThread extends Thread{
             HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue = Control.getServerMsgBuffQueue();
             HashMap<Connection, Boolean> serverMsgBuffActivator = Control.getServerMsgBuffActivator();
             if (!serverMsgBuffQueue.isEmpty()){
-                for(Connection con: serverMsgBuffQueue.keySet()){
-                    if (serverMsgBuffActivator.get(con)){
+                //Use iterator to avoid concurrency issues
+                Iterator<Entry<Connection, ArrayList<Message>>> it = serverMsgBuffQueue.entrySet().iterator();
+                while(it.hasNext()){
+                    Entry<Connection, ArrayList<Message>> newEntry = it.next();
+                    Connection con = newEntry.getKey();
+                    if (!(serverMsgBuffActivator.get(con)==null)&&serverMsgBuffActivator.get(con)){
                         ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
                         if((!(targetList == null))&&(!targetList.isEmpty())){
                             //Waiting for acknowledgment, deactivate sending messages

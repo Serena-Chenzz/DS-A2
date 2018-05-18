@@ -2,6 +2,8 @@ package activitystreamer.server.commands;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +36,10 @@ public class ActivityClientBroadcastThread extends Thread{
             //Fetch clientMsgBufferQueue
             HashMap<Connection, ArrayList<Message>> clientMsgBuffQueue = Control.getClientMsgBuffQueue();
             if (!clientMsgBuffQueue.isEmpty()){
-                for(Connection con: clientMsgBuffQueue.keySet()){
+                Iterator<Entry<Connection, ArrayList<Message>>> it = clientMsgBuffQueue.entrySet().iterator();
+                while(it.hasNext()){
+                    Entry<Connection, ArrayList<Message>> newEntry = it.next();
+                    Connection con = newEntry.getKey();
                     //Broadcast the first message
                     //For clients,we don't wait for acknowledgments
                     ArrayList<Message> targetList = clientMsgBuffQueue.get(con);
