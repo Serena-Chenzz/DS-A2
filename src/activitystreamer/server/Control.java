@@ -162,18 +162,6 @@ public class Control extends Thread {
         return userConnections;
     }
     
-    public synchronized void cleanMessageBufferQueue(Connection con){
-        if (serverMsgBuffQueue.containsKey(con)){
-            serverMsgBuffQueue.remove(con);
-        }
-    }
-    
-    public synchronized void cleanAckQueue(Connection con){
-        if (serverMsgAckQueue.containsKey(con)){
-            serverMsgAckQueue.remove(con);
-        }
-    }
-    
     public synchronized void updateAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
         serverMsgAckQueue.put(con, timestamp + " " +senderIp + " " + senderPort);
     }
@@ -219,6 +207,25 @@ public class Control extends Thread {
             log.error("Fail to remove the message. " + e.toString());
         }
         return false;
+    }
+    
+    
+    public synchronized void cleanMessageBufferQueue(Connection con){
+        if (serverMsgBuffQueue.containsKey(con)){
+            serverMsgBuffQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanAckQueue(Connection con){
+        if (serverMsgAckQueue.containsKey(con)){
+            serverMsgAckQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanClientMsgBuffQueue(Connection con){
+        if (clientMsgBuffQueue.containsKey(con)){
+            clientMsgBuffQueue.remove(con);
+        }
     }
   
     
