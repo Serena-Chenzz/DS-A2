@@ -11,7 +11,8 @@ public enum Command {
     AUTHENTICATE, INVALID_MESSAGE, AUTHENTICATION_FAIL, AUTHENTICATION_SUCCESS, LOGIN, LOGIN_SUCCESS, 
     REDIRECT, LOGIN_FAILED, LOGOUT, ACTIVITY_MESSAGE, SERVER_ANNOUNCE,
     ACTIVITY_BROADCAST, REGISTER, REGISTER_FAILED, REGISTER_SUCCESS, LOCK_REQUEST, 
-    LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST;
+    LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST,
+    USERS_REGISTERED_LIST;
 
 
     public static boolean contains(String commandName) {
@@ -258,6 +259,13 @@ public enum Command {
         return obj.toJSONString();
     }
     
+    @SuppressWarnings("unchecked")
+    public static String usersRegisteredList(ArrayList<User> userList){
+        JSONObject obj = new JSONObject();
+        obj.put("command", Command.USERS_REGISTERED_LIST.toString());
+        obj.put("user_list", userList); 
+        return obj.toJSONString();
+    }
     
     //The following methods are used to check if a command message is in a right format
     //For Register, Lock_Request, Lock_Denied, Lock_Allowed, Login and Register_Success_Broadcast
@@ -351,5 +359,11 @@ public enum Command {
         return false;
     }
     
-    
+    //For Sending the current registered user list
+    public static boolean checkUsersRegisteredList(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("user_list")){
+            return true;
+        }
+        return false;
+    }
 }

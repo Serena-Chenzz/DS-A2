@@ -104,14 +104,12 @@ public class Control extends Thread {
         if (Settings.getRemoteHostname() != null) {
             createServerConnection(Settings.getRemoteHostname(), Settings.getRemotePort());
         }
-        
-
     }
     
     public void run() {
         // start server announce
         Thread serverAnnouce = new ServerAnnounce();
-        serverAnnouce.start();
+        //serverAnnouce.start();
         // start broadcasting messages
         Thread activityServerBrd = new ActivityServerBroadcastThread();
         activityServerBrd.start();
@@ -308,6 +306,12 @@ public class Control extends Thread {
                                     serverMsgAckQueue.put(con, null);
                                     
                                     log.debug("Add neighbor: " + con.getRemoteId());
+                                    
+                                    //Send the list of local registered users
+                                    String registerUserList = Command.usersRegisteredList(localUserList);
+                                    log.debug("Respond to authentication with message " + respondMsg);
+                                    con.writeMsg(registerUserList);
+                                    
                                 }
                                 return auth.getResponse();
                             }
@@ -343,7 +347,6 @@ public class Control extends Thread {
                                         Integer port = Integer.parseInt(neiDetail[1]);
                                         log.debug("Send connection request to " + hostname + ", port " + port); 
                                         createServerConnection(hostname, port);
-                                            
                                     }
                                 }
                                 
@@ -496,7 +499,20 @@ public class Control extends Thread {
                                 ActivityAcknowledgment actAck = new ActivityAcknowledgment(con, msg);
                                 return actAck.getResponse();
                             }
-                            
+                        case USERS_REGISTERED_LIST:
+                            if (!Command.checkUsersRegisteredList(userInput)){
+                            	String invalidMsg = Command.createInvalidMessage("the received message did not contain a correct command");
+                                con.writeMsg(invalidMsg);
+                                return true;
+                            }
+                            else{
+                            	ArrayList<User> userList = (ArrayList<User>)userInput.get("user_list");
+                            	log.info("before "+localUserList);
+                            	// Sync localUserList with other servers userList
+                            	localUserList = userList;
+                            	log.info("later "+localUserList);
+                            	return false;
+                            } 
                         case INVALID_MESSAGE:
                             //First, check its informarion format
                             if (!Command.checkValidCommandFormat2(userInput)){
