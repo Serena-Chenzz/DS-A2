@@ -4,6 +4,9 @@ import java.util.ArrayList;
 
 import org.json.simple.JSONObject;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import activitystreamer.server.Message;
 
 //ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST are the commands we added
@@ -260,11 +263,10 @@ public enum Command {
     }
     
     @SuppressWarnings("unchecked")
-    public static String usersRegisteredList(ArrayList<User> userList){
-        JSONObject obj = new JSONObject();
-        obj.put("command", Command.USERS_REGISTERED_LIST.toString());
-        obj.put("user_list", userList); 
-        return obj.toJSONString();
+    public static String usersRegisteredList(ArrayList<User> localUserList){
+    	Gson gson = new GsonBuilder().create();
+        String obj = gson.toJson(new UserListRequest(Command.USERS_REGISTERED_LIST.toString(),localUserList));
+        return obj;
     }
     
     //The following methods are used to check if a command message is in a right format

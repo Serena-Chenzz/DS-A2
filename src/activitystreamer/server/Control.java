@@ -4,16 +4,21 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.UUID;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import javax.jws.soap.SOAPBinding.Use;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import activitystreamer.server.commands.*;
 import activitystreamer.util.Settings;
@@ -325,9 +330,7 @@ public class Control extends Thread {
                                     
                                     //Send the list of local registered users
                                     String registerUserList = Command.usersRegisteredList(localUserList);
-                                    log.debug("Respond to authentication with message " + respondMsg);
                                     con.writeMsg(registerUserList);
-                                    
                                 }
                                 return auth.getResponse();
                             }
@@ -522,11 +525,11 @@ public class Control extends Thread {
                                 return true;
                             }
                             else{
-                            	ArrayList<User> userList = (ArrayList<User>)userInput.get("user_list");
-                            	log.info("before "+localUserList);
-                            	// Sync localUserList with other servers userList
-                            	localUserList = userList;
-                            	log.info("later "+localUserList);
+                            	Gson gson = new GsonBuilder().create();
+
+                                UserListRequest jsonUserList = gson.fromJson(msg,UserListRequest.class);
+                                localUserList = jsonUserList.getUserList();
+                            	printRegisteredUsers();
                             	return false;
                             } 
                         case INVALID_MESSAGE:
@@ -559,7 +562,13 @@ public class Control extends Thread {
         return true;
     }
 
-    
+    public synchronized void printRegisteredUsers() {
+    	ArrayList<String> usernameList = new ArrayList<String>();
+    	for(User user : localUserList) {
+        	   	usernameList.add(user.getUsername());	
+    	}
+    	log.info("Users registered:" +usernameList); 
+    }
     public synchronized boolean containsServer(String remoteId) {
         return connectionServers.containsKey(remoteId);
     }
