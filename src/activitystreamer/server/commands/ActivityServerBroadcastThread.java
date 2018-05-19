@@ -35,9 +35,9 @@ public class ActivityServerBroadcastThread extends Thread{
         log.info("ActivityServerBroadcastThread is running");
         while(!Control.getInstance().getTerm()){
             //Fetch the latest serverMsgBufferQueue
-            HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue = Control.getServerMsgBuffQueue();
-            HashMap<Connection, Boolean> serverMsgBuffActivator = Control.getServerMsgBuffActivator();
             try{
+                HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue = Control.getServerMsgBuffQueue();
+                HashMap<Connection, Boolean> serverMsgBuffActivator = Control.getServerMsgBuffActivator();
                 if (!serverMsgBuffQueue.isEmpty()){
                     //Use iterator to avoid concurrency issues
                     for(Iterator<Entry<Connection, ArrayList<Message>>> it = serverMsgBuffQueue.entrySet().iterator();it.hasNext();){

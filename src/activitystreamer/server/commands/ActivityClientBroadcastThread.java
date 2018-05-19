@@ -35,8 +35,8 @@ public class ActivityClientBroadcastThread extends Thread{
         log.info("ActivityClientBroadcastThread is running");
         while(!Control.getInstance().getTerm()){
             //Fetch clientMsgBufferQueue
-            HashMap<Connection, ArrayList<Message>> clientMsgBuffQueue = Control.getClientMsgBuffQueue();
             try{
+                HashMap<Connection, ArrayList<Message>> clientMsgBuffQueue = Control.getClientMsgBuffQueue();
                 if (!clientMsgBuffQueue.isEmpty()){
                     for(Iterator<Entry<Connection, ArrayList<Message>>> it = clientMsgBuffQueue.entrySet().iterator();it.hasNext();){
                         Entry<Connection, ArrayList<Message>> newEntry = it.next();
