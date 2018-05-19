@@ -28,7 +28,7 @@ public class Control extends Thread {
 
     protected static final Logger log = LogManager.getLogger();
     //The connections list will record all connections to this server
-    protected static ArrayList<Connection> connections;
+    protected static HashMap<Connection, Boolean> connections;
     private static ArrayList<Connection> connectionClients;
     //This hashmap is to record status of each connection
     protected static HashMap<String, ArrayList<String>> connectionServers;
@@ -79,7 +79,7 @@ public class Control extends Thread {
 
     public Control() {
         // initialize the connections array
-        connections = new ArrayList<Connection>();
+        connections = new HashMap<Connection,Boolean>();
         connectionClients = new ArrayList<Connection>();
         //connectionServers is to record all replies from its neighbors and record all connection status.
         connectionServers = new HashMap<String, ArrayList<String>>();
@@ -719,7 +719,7 @@ public class Control extends Thread {
     public synchronized Connection incomingConnection(Socket s) throws IOException {
         //log.debug("incomming connection: " + Settings.socketAddress(s));
         Connection c = new Connection(s);
-        connections.add(c);
+        connections.put(c, true);
         return c;
     }
 
@@ -729,7 +729,7 @@ public class Control extends Thread {
     public synchronized Connection outgoingConnection(Socket s) throws IOException {
         //log.debug("outgoing connection: " + s.toString());
         Connection c = new Connection(s);
-        connections.add(c);
+        connections.put(c,true);
         return c;
 
     }
@@ -741,7 +741,7 @@ public class Control extends Thread {
     	return term;
     }
 
-    public synchronized final ArrayList<Connection> getConnections() {
+    public synchronized final HashMap<Connection, Boolean> getConnections() {
         return connections;
     }
 
@@ -749,7 +749,7 @@ public class Control extends Thread {
         return connectionServers;
     }
 
-    public synchronized static String getUniqueId() {
+    public synchronized String getUniqueId() {
         return uniqueId;
     }
     

@@ -1,9 +1,8 @@
 package activitystreamer.server.commands;
 
-import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,7 +28,7 @@ public class ServerAnnounce extends Thread{
     @Override
     public void run() {
     	int load = 0;
-    	ArrayList<Connection> connections = Control.getInstance().getConnections();
+    	HashMap<Connection,Boolean> connections = Control.getInstance().getConnections();
     	while(!Control.getInstance().getTerm()){
 				// do something with 5 second intervals in between
 				try {
@@ -50,9 +49,14 @@ public class ServerAnnounce extends Thread{
 		
 		log.info("closing "+connections.size()+" connections");
 		// clean up
-		for(Connection connection : connections){
-			connection.closeCon();
-		}
+        //Use iterator to avoid concurrency issues
+        for(Iterator<Entry<Connection, Boolean>> it = connections.entrySet().iterator();it.hasNext();){
+            Entry<Connection, Boolean> newEntry = it.next();
+            Connection con = newEntry.getKey();
+            con.closeCon();
+        }
+            
+        
 		Control.getInstance().listenAgain();;
     }
     
