@@ -94,16 +94,16 @@ public enum Command {
     
     //Create LOCK_REQUEST JSON object.
     @SuppressWarnings("unchecked")
-    public static JSONObject createLockRequest(String username, String secret, String id){
+    public static JSONObject createLockRequest(String username, String secret){
         JSONObject obj = new JSONObject();
         obj.put("command", LOCK_REQUEST.toString());
         obj.put("username", username);
         obj.put("secret", secret);
-        obj.put("id", id);
         
         return obj;
         
     }
+    
     
     @SuppressWarnings("unchecked")
     public static JSONObject createLockDenied(String username, String secret){

@@ -57,8 +57,12 @@ public class Register {
             else {
             	log.info("Start broadcasting lock_request");
                 Control.getInstance().addUserToRegistePendingList(username, secret, con);
-                JSONObject lockRequest = Command.createLockRequest(username, secret,Settings.getLocalHostname());
+                JSONObject lockRequest = Command.createLockRequest(username, secret);
                 Control.getInstance().broadcast(lockRequest.toJSONString());
+                
+                for (Connection con2: Control.getNeighbors()){
+                    Control.getInstance().setLockAckQueue(con2, username + " " +secret);
+                }
                 log.debug(lockRequest.toJSONString());
                 closeConnection = false;
             }

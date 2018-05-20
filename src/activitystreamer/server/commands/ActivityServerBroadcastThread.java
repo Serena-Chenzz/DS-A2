@@ -58,8 +58,11 @@ public class ActivityServerBroadcastThread extends Thread{
                         }
                     }
                 }
+                Thread.sleep(Settings.getActivityInterval());
             }catch(ConcurrentModificationException e){
                 log.info("Block iterating arrays when modifying it");
+            }catch (InterruptedException e){
+                log.info("This thread is interrupted forcefully.");
             }
         }
         

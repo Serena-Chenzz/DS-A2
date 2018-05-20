@@ -50,9 +50,31 @@ public class Control extends Thread {
     private static HashMap<Connection, ArrayList<Message>> clientMsgBuffQueue;
     //String will be like "timestamp,senderId,senderPort"
     private static HashMap<Connection, String> serverMsgAckQueue;
+    //Create a hashmap to record whether to send Authentication message again. If the timestamp is set to -1, it means 
+    //the connection has received a response
+    private static HashMap<Connection, Long> authenticationAckQueue;
+    //Create a hashmap to record whether to send a lock_requst again. If the timestamp is set to -1, it means the 
+    //connection has received a response(acknowledgment)
+    private static HashMap<Connection, HashMap<Long,String>> lockAckQueue;
 
     protected static Control control = null;
     protected static Load serverLoad;
+    
+    public synchronized static ArrayList<Connection> getNeighbors(){
+        return neighbors;
+    }
+    
+    public synchronized static String getRemoteId(){
+        return uniqueId;
+    }
+    
+    public synchronized static HashMap<Connection,HashMap<Long,String>> getLockAckQueue(){
+        return lockAckQueue;
+    }
+    
+    public synchronized static HashMap<Connection, Long> getAuthenticationAckQueue(){
+        return authenticationAckQueue;
+    }
     
     public synchronized static HashMap<Connection, Boolean> getServerMsgBuffActivator(){
         return serverMsgBuffActivator;
@@ -93,6 +115,8 @@ public class Control extends Thread {
         serverMsgAckQueue = new HashMap<Connection, String>();
         clientMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
         serverMsgBuffActivator = new HashMap<Connection, Boolean>();
+        authenticationAckQueue = new HashMap<Connection, Long>();
+        lockAckQueue = new HashMap<Connection, HashMap<Long,String>>();
         // start a listener
         try {
             listener = new Listener();
@@ -121,6 +145,13 @@ public class Control extends Thread {
         //start client broadcasting messages
         Thread activityClientBrd = new ActivityClientBroadcastThread();
         activityClientBrd.start();
+        //Start sending Authentication Thread
+        Thread authenticationSending = new SendingAuthenticationThread();
+        authenticationSending.start();
+      //Start sending lockRequst Thread
+        Thread lockRequestSending = new SendingLockRequestThread();
+        lockRequestSending.start();
+        
     }
     
     //Activator Methods
@@ -135,6 +166,30 @@ public class Control extends Thread {
         if (!serverMsgBuffActivator.isEmpty()){
             for(Connection con: serverMsgBuffActivator.keySet()){
                 serverMsgBuffActivator.put(con, true);
+            }
+        }
+    }
+    
+    //LockAckQueue methods
+    public synchronized void setLockAckQueue(Connection con, String lockRequest){
+        HashMap<Long,String> targetMap = lockAckQueue.get(con);
+        targetMap.put(System.currentTimeMillis(), lockRequest);
+    }
+    
+    public synchronized void setSuspendLockAck(Connection con, String lockRequest){
+        HashMap<Long,String> targetMap = lockAckQueue.get(con);
+        for(Long time:targetMap.keySet()){
+            if (targetMap.get(time).equals(lockRequest)){
+                targetMap.put(time, "Suspend");
+            }
+        }
+    }
+    
+    public synchronized void unsetLockAckQueue(Connection con, String lockRequest){
+        HashMap<Long,String> targetMap = lockAckQueue.get(con);
+        for(Long time:targetMap.keySet()){
+            if (targetMap.get(time).equals(lockRequest)){
+                targetMap.put(time, "Received Ack");
             }
         }
     }
@@ -239,12 +294,26 @@ public class Control extends Thread {
             serverMsgBuffActivator.remove(con);
         }
     }
+    
+    public synchronized void cleanAuthenticationAckQueue(Connection con){
+        if (authenticationAckQueue.containsKey(con)){
+            authenticationAckQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanLockAckQueue(Connection con){
+        if (lockAckQueue.containsKey(con)){
+            lockAckQueue.remove(con);
+        }
+    }
   
     
     public synchronized void createServerConnection(String hostname, int port) {
         try {
                 Connection con = outgoingConnection(new Socket(hostname, port));
                 JSONObject authenticate = Command.createAuthenticate(Settings.getSecret(), uniqueId);
+                //initiate the authenticationAckQueue
+                authenticationAckQueue.put(con, System.currentTimeMillis());
                 String remoteId;
                 if(hostname == null){
                     remoteId = "localhost" + " " + port;
@@ -325,6 +394,7 @@ public class Control extends Thread {
                                     serverMsgBuffQueue.put(con, new ArrayList<Message>());
                                     serverMsgBuffActivator.put(con, true);
                                     serverMsgAckQueue.put(con, null);
+                                    lockAckQueue.put(con, new HashMap<Long,String>());
                                     
                                     log.debug("Add neighbor: " + con.getRemoteId());
                                     
@@ -341,6 +411,8 @@ public class Control extends Thread {
                                 con.writeMsg(invalidAuth);                                
                             }                                        
                             else{
+                                //Change the authenticateAckQueue value to -1
+                                authenticationAckQueue.put(con, (long)(-1));
                                 // Set remoteId for this connection
                                 String remoteId = (String)userInput.get("remoteId");
                                 con.setRemoteId(remoteId);
@@ -352,6 +424,7 @@ public class Control extends Thread {
                                 serverMsgBuffQueue.put(con, new ArrayList<Message>());
                                 serverMsgBuffActivator.put(con, true);
                                 serverMsgAckQueue.put(con, null);
+                                lockAckQueue.put(con, new HashMap<Long,String>());
                                 
                                 pendingNeighbors.remove(remoteId);
                                 log.debug("Add neighbor: " + con.getRemoteId());
@@ -373,6 +446,8 @@ public class Control extends Thread {
                             }
                             return true;
                         case AUTHENTICATION_FAIL:
+                            //Change the authenticateAckQueue value to -1
+                            authenticationAckQueue.put(con, (long)(-1));
                             String remoteId = (String)userInput.get("remoteId");
                             if (!Command.checkValidCommandFormat2(userInput)){
                                 String invalidAuth = Command.createInvalidMessage("Invalid Authenticate Fail Message Format");
@@ -658,8 +733,17 @@ public class Control extends Thread {
             }
         }
     }
-
-    public synchronized boolean checkAllLocks(Connection con, String msg) {
+    
+    //Change certain connection to status 'Lock_suspend'
+    public synchronized void changeLockStatus(Connection con, String username){
+        if(connectionServers.containsKey(con.getRemoteId())){
+            connectionServers.get(con.getRemoteId()).add("LOCK_SUSPEND " + username);
+        }
+        System.out.println(connectionServers);
+    }
+    
+    //If return 0, means lock_denied. If 1,means there are some lock_suspend. If 2, means there are all lock_allowed.
+    public synchronized void addLockAllowedDenied(Connection con, String msg) {
         try {
             JSONParser parser = new JSONParser();
             JSONObject message = (JSONObject) parser.parse(msg);
@@ -670,22 +754,27 @@ public class Control extends Thread {
                 if (remoteId.equals(con.getRemoteId())) {
                     connectionServers.get(remoteId).add(command + " " + username);
                 }
-                log.debug("Updated hasmap, Con:" + con.getSocket() + " Value:" + connectionServers.get(remoteId));
+                log.debug("Updated hashmap, Con:" + con.getSocket() + " Value:" + connectionServers.get(remoteId));
                 
             }
-            //Step 2, check whether all the connection return a lock allowed/lock_request regarding to this user
-            for (String remoteId : connectionServers.keySet()){
-                if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username) || 
-                        connectionServers.get(remoteId).contains("LOCK_REQUEST " + username))){
-                    return false;
-                }
-            }
-            return true;
+            System.out.println(connectionServers);
             
         } catch (ParseException e) {
             log.error(e);
         }
-        return false;
+    }
+    
+    public synchronized boolean checkAllLocks(String username){
+        //Step 2, check whether all the connection return a lock allowed/lock_suspend regarding to this user
+        //lock_suspend means the connection has problem, and we don't need to wait for the response
+        for (String remoteId : connectionServers.keySet()){
+            if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username) || 
+                    connectionServers.get(remoteId).contains("LOCK_SUSPEND " + username))){
+                return false;
+            }
+        }
+        return true;
+        
     }
 
     public synchronized boolean broadcast(String msg) {     
@@ -710,6 +799,8 @@ public class Control extends Thread {
             cleanAckQueue(con);
             cleanClientMsgBuffQueue(con);
             cleanServerMsgBuffActivator(con);
+            cleanAuthenticationAckQueue(con);
+            cleanLockAckQueue(con);
         }
     }
 
