@@ -38,6 +38,7 @@ public class Control extends Thread {
     private static ArrayList<String> pendingNeighbors;
     //This userlist is to store all user information locally in memory
     private static ArrayList<User> localUserList;
+    private static ArrayList<String> usernameList;
     //Save the list of connected users plus timestamp and its connections
     private static HashMap<Connection, String> userConnections = new HashMap<Connection, String>();
     //This registerList is a pending list for all registration applications
@@ -106,9 +107,7 @@ public class Control extends Thread {
     	// initialize ip 
         try {
             ip = InetAddress.getLocalHost();
- 
         } catch (UnknownHostException e) {
- 
             log.error(e);
         }
     	
@@ -120,6 +119,7 @@ public class Control extends Thread {
         neighbors = new ArrayList<Connection>();
         pendingNeighbors = new ArrayList<String>();
         localUserList = new ArrayList<User>();
+        usernameList = new ArrayList<String>();
         registerPendingList = new HashMap<Connection, User>();
         serverLoad = new Load();
         uniqueId = ip.getHostAddress() + " " + Settings.getLocalPort();
@@ -161,10 +161,11 @@ public class Control extends Thread {
         //Start sending Authentication Thread
         Thread authenticationSending = new SendingAuthenticationThread();
         authenticationSending.start();
-      //Start sending lockRequst Thread
+        //Start sending lockRequst Thread
         Thread lockRequestSending = new SendingLockRequestThread();
         lockRequestSending.start();
-        
+        //Start userLocalList broadcast Thread
+        new UserListBroadCastThread();
     }
     
     //Activator Methods
@@ -613,8 +614,8 @@ public class Control extends Thread {
                             	Gson gson = new GsonBuilder().create();
 
                                 UserListRequest jsonUserList = gson.fromJson(msg,UserListRequest.class);
-                                localUserList = jsonUserList.getUserList();
-                            	printRegisteredUsers();
+                                new UserListReview(jsonUserList.getUserList());
+                                
                             	return false;
                             } 
                         case INVALID_MESSAGE:
@@ -632,11 +633,9 @@ public class Control extends Thread {
                             String invalidMsg = Command.createInvalidMessage("the received message did not contain a correct command");
                             con.writeMsg(invalidMsg);
                             return true;
-                        
                         }
                     }
                 }
-
         }  
         catch (ParseException e) {
             //If parseError occurs, the server should return an invalid message and close the connection
@@ -648,10 +647,15 @@ public class Control extends Thread {
     }
 
 	public synchronized void printRegisteredUsers() {
-    	ArrayList<String> usernameList = new ArrayList<String>();
-    	for(User user : localUserList) {
-        	   	usernameList.add(user.getUsername());	
+    	usernameList.clear();
+    	try {
+			for(User user : localUserList) {
+	    		usernameList.add(user.getUsername());	
+	    	}
     	}
+		catch(Exception e) {
+			
+		}
     	log.info("Users registered:" +usernameList); 
     }
     public synchronized boolean containsServer(String remoteId) {
@@ -739,7 +743,7 @@ public class Control extends Thread {
     public synchronized void deleteLocalUser(String username, String secret) {
         for(User user:localUserList){
             if (user.getUsername().equals(username)){
-                localUserList.remove(user);
+            	localUserList.remove(user);
             }
         }
     }
@@ -865,6 +869,15 @@ public class Control extends Thread {
 	public static void setConnectionClients(Connection con) {
 		log.debug("adding connection client: "+con);
 		connectionClients.add(con);
+	}
+	
+
+	public static ArrayList<User> getLocalUserList() {
+		return localUserList;
+	}
+
+	public static void setLocalUserList(ArrayList<User> localUserList) {
+		Control.localUserList = localUserList;
 	}
 
 }
