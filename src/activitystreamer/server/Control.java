@@ -1,7 +1,9 @@
 package activitystreamer.server;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -56,6 +58,7 @@ public class Control extends Thread {
     //Create a hashmap to record whether to send a lock_requst again. If the timestamp is set to -1, it means the 
     //connection has received a response(acknowledgment)
     private static HashMap<Connection, HashMap<Long,String>> lockAckQueue;
+    private InetAddress ip;
 
     protected static Control control = null;
     protected static Load serverLoad;
@@ -117,6 +120,14 @@ public class Control extends Thread {
         serverMsgBuffActivator = new HashMap<Connection, Boolean>();
         authenticationAckQueue = new HashMap<Connection, Long>();
         lockAckQueue = new HashMap<Connection, HashMap<Long,String>>();
+        // initialize ip 
+        try {
+            ip = InetAddress.getLocalHost();
+ 
+        } catch (UnknownHostException e) {
+ 
+            log.error(e);
+        }
         // start a listener
         try {
             listener = new Listener();
@@ -131,7 +142,7 @@ public class Control extends Thread {
     public void initiateConnection() {
         // make a connection to another server if remote hostname is supplied
         if (Settings.getRemoteHostname() != null) {
-            createServerConnection(Settings.getRemoteHostname(), Settings.getRemotePort());
+            createServerConnection(ip.getHostAddress(), Settings.getRemotePort());
         }
     }
     
