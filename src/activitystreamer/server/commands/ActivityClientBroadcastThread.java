@@ -63,7 +63,7 @@ public class ActivityClientBroadcastThread extends Thread{
                         }
                     }
                 }
-                Thread.sleep(Settings.getActivityInterval());
+                Thread.sleep(2000);
             }catch(ConcurrentModificationException e){
                 log.info("Block iterating arrays when modifying it");
             }catch (InterruptedException e){

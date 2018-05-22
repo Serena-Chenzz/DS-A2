@@ -14,11 +14,15 @@ import activitystreamer.util.Settings;
 
 import activitystreamer.models.*;
 import activitystreamer.server.Load;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 
 public class ServerAnnounce extends Thread{
     
     private static boolean closeConnection=false;
     private final static Logger log = LogManager.getLogger();
+    InetAddress ip;
     
     public ServerAnnounce() {
     	//start();
@@ -33,7 +37,7 @@ public class ServerAnnounce extends Thread{
 				// do something with 5 second intervals in between
 				try {
 					load = Load.getOwnLoad();
-					JSONObject serverAnnounce = Command.createServerAnnounce(Control.getInstance().getUniqueId(),load,Settings.getLocalHostname(),Settings.getLocalPort()); 
+					JSONObject serverAnnounce = Command.createServerAnnounce(Control.getInstance().getUniqueId(),load,ip.getHostAddress(),Settings.getLocalPort()); 
 					Control.getInstance().broadcast(serverAnnounce.toJSONString());
 					Control.getInstance().printRegisteredUsers();
 					Thread.sleep(Settings.getActivityInterval());
