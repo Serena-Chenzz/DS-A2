@@ -144,7 +144,7 @@ public class Control extends Thread {
     public void initiateConnection() {
         // make a connection to another server if remote hostname is supplied
         if (Settings.getRemoteHostname() != null) {
-            createServerConnection(ip.getHostAddress(), Settings.getRemotePort());
+            createServerConnection(Settings.getRemoteHostname(), Settings.getRemotePort());
         }
     }
     
@@ -329,7 +329,7 @@ public class Control extends Thread {
                 authenticationAckQueue.put(con, System.currentTimeMillis());
                 String remoteId;
                 if(hostname == null){
-                    remoteId = "localhost" + " " + port;
+                    remoteId = ip.getHostAddress() + " " + port;
                 }else{
                     remoteId = hostname + " " + port;
                 }
