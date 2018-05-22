@@ -103,6 +103,15 @@ public class Control extends Thread {
     }
 
     public Control() {
+    	// initialize ip 
+        try {
+            ip = InetAddress.getLocalHost();
+ 
+        } catch (UnknownHostException e) {
+ 
+            log.error(e);
+        }
+    	
         // initialize the connections array
         connections = new HashMap<Connection,Boolean>();
         connectionClients = new ArrayList<Connection>();
@@ -113,21 +122,14 @@ public class Control extends Thread {
         localUserList = new ArrayList<User>();
         registerPendingList = new HashMap<Connection, User>();
         serverLoad = new Load();
-        uniqueId = Settings.getLocalHostname() + " " + Settings.getLocalPort();
+        uniqueId = ip.getHostAddress() + " " + Settings.getLocalPort();
         serverMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
         serverMsgAckQueue = new HashMap<Connection, String>();
         clientMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
         serverMsgBuffActivator = new HashMap<Connection, Boolean>();
         authenticationAckQueue = new HashMap<Connection, Long>();
         lockAckQueue = new HashMap<Connection, HashMap<Long,String>>();
-        // initialize ip 
-        try {
-            ip = InetAddress.getLocalHost();
- 
-        } catch (UnknownHostException e) {
- 
-            log.error(e);
-        }
+        
         // start a listener
         try {
             listener = new Listener();
