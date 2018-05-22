@@ -26,6 +26,13 @@ public class ServerAnnounce extends Thread{
     
     public ServerAnnounce() {
     	//start();
+    	try {
+            ip = InetAddress.getLocalHost();
+ 
+        } catch (UnknownHostException e) {
+ 
+        	log.error(e);
+        }
     }
     
     
