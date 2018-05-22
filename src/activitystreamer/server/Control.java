@@ -398,9 +398,11 @@ public class Control extends Thread {
                                     
                                     log.debug("Add neighbor: " + con.getRemoteId());
                                     
-                                    //Send the list of local registered users
+                                    
+                                    //Send the list of local registered users to new auth server
                                     String registerUserList = Command.usersRegisteredList(localUserList);
                                     con.writeMsg(registerUserList);
+                                    
                                 }
                                 return auth.getResponse();
                             }
@@ -637,7 +639,7 @@ public class Control extends Thread {
         return true;
     }
 
-    public synchronized void printRegisteredUsers() {
+	public synchronized void printRegisteredUsers() {
     	ArrayList<String> usernameList = new ArrayList<String>();
     	for(User user : localUserList) {
         	   	usernameList.add(user.getUsername());	
