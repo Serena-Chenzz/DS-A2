@@ -1,4 +1,4 @@
-package activitystreamer.server.commands;
+                                                                             package activitystreamer.server.commands;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -46,6 +46,13 @@ public class ActivityServerBroadcast {
                     Control.getInstance().addToAllClientMsgBufferQueue(newMsg);
             		closeConnection=false;
             		}
+                //else,it will send the acknowledgement again
+                else{
+                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, (int)portNum);
+                    System.out.println("Sending Acknowledgment Again...");
+                    con.writeMsg(ackMsg);
+                    closeConnection=false;
+                }
             }
         } catch (ParseException e) {
         	Command.createInvalidMessage("JSON parse error while parsing message");
