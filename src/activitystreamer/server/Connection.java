@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +17,7 @@ import activitystreamer.util.Settings;
 public class Connection extends Thread {
 
     private static final Logger log = LogManager.getLogger();
+    private static final long DISCONNECTION_TIME_LIMIT = 60000;  //60000 milliseconds
     private DataInputStream in;
     private DataOutputStream out;
     private BufferedReader inreader;
@@ -24,6 +26,9 @@ public class Connection extends Thread {
     private Socket socket;
     private boolean term = false;
     private String remoteId = "";
+    //We record starting time to calculate the disconnection time
+    private long timerStart = 0;
+    
 
     public void setRemoteId(String remoteId) {
         this.remoteId = remoteId;
@@ -37,7 +42,7 @@ public class Connection extends Thread {
         this.socket = socket;
         open = true;
 
-//        remoteId = socket.getInetAddress() + ":" + socket.getPort();
+        //remoteId = socket.getInetAddress() + ":" + socket.getPort();
         start();
     }
 
@@ -79,7 +84,7 @@ public class Connection extends Thread {
 
     public void closeCon() {
         if (open) {
-            log.info("closing connection " + Settings.socketAddress(socket));
+            //log.info("closing connection " + Settings.socketAddress(socket));
             try {
                 term = true;
                 inreader.close();
@@ -94,22 +99,43 @@ public class Connection extends Thread {
     }
 
     public void run() {
-        String data = "";
-        try {
-            //If Control.process() return true, then while loop finish
-            while (!term && (data = inreader.readLine()) != null) {
+        while (open){
+            String data = "";
+            try {
+                //Start sending buffered messages
+                Control.getInstance().activateMessageQueue(this);
+                //If Control.process() returns true, then while loop finishes
+                while (!term && (data = inreader.readLine()) != null) {
+                    //reset the starting time
+                    this.timerStart = 0;
                     term = Control.getInstance().process(this, data);               
+                }
+                Control.getInstance().connectionClosed(this);
+                closeCon();
             }
-
-            Control.getInstance().connectionClosed(this);
-            closeCon();
-            in.close();
-
-        } catch (IOException e) {
-            log.error("connection " + Settings.socketAddress(socket) + " closed with exception: " + e);
-            Control.getInstance().connectionClosed(this);
+            catch (SocketException e){
+                //log.error("connection error: " + e.toString());
+                //Start the timer
+                if (this.timerStart == 0){
+                    this.timerStart = System.currentTimeMillis();
+                }
+                else{
+                    long timerEnd = System.currentTimeMillis();
+                    if ((timerEnd - this.timerStart) > DISCONNECTION_TIME_LIMIT){
+                        //close the connection, regard the server is crashed
+                        open = false;
+                    }
+                }
+            }
+            catch (IOException e) {
+                //log.error("connection " + Settings.socketAddress(socket) + " closed with exception: " + e);
+                Control.getInstance().connectionClosed(this);
+                open = false;
+            }
         }
-        open = false;
+        log.error("connection " + Settings.socketAddress(socket) + " closed...");
+        Control.getInstance().connectionClosed(this);
+        closeCon();
     }
 
     public Socket getSocket() {

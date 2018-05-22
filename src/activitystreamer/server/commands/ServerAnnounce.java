@@ -1,9 +1,8 @@
 package activitystreamer.server.commands;
 
-import java.util.ArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,27 +14,39 @@ import activitystreamer.util.Settings;
 
 import activitystreamer.models.*;
 import activitystreamer.server.Load;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 
 public class ServerAnnounce extends Thread{
     
     private static boolean closeConnection=false;
     private final static Logger log = LogManager.getLogger();
+    InetAddress ip;
     
     public ServerAnnounce() {
-    	start();
+    	//start();
+    	try {
+            ip = InetAddress.getLocalHost();
+ 
+        } catch (UnknownHostException e) {
+ 
+        	log.error(e);
+        }
     }
     
     
     @Override
     public void run() {
     	int load = 0;
-    	ArrayList<Connection> connections = Control.getInstance().getConnections();
+    	HashMap<Connection,Boolean> connections = Control.getInstance().getConnections();
     	while(!Control.getInstance().getTerm()){
 				// do something with 5 second intervals in between
 				try {
 					load = Load.getOwnLoad();
-					JSONObject serverAnnounce = Command.createServerAnnounce(Control.getInstance().getUniqueId(),load,Settings.getLocalHostname(),Settings.getLocalPort()); 
+					JSONObject serverAnnounce = Command.createServerAnnounce(Control.getInstance().getUniqueId(),load,ip.getHostAddress(),Settings.getLocalPort()); 
 					Control.getInstance().broadcast(serverAnnounce.toJSONString());
+					Control.getInstance().printRegisteredUsers();
 					Thread.sleep(Settings.getActivityInterval());
 				} catch (InterruptedException e) {
 					log.info("received an interrupt, system is shutting down");
@@ -49,9 +60,14 @@ public class ServerAnnounce extends Thread{
 		
 		log.info("closing "+connections.size()+" connections");
 		// clean up
-		for(Connection connection : connections){
-			connection.closeCon();
-		}
+        //Use iterator to avoid concurrency issues
+        for(Iterator<Entry<Connection, Boolean>> it = connections.entrySet().iterator();it.hasNext();){
+            Entry<Connection, Boolean> newEntry = it.next();
+            Connection con = newEntry.getKey();
+            con.closeCon();
+        }
+            
+        
 		Control.getInstance().listenAgain();;
     }
     

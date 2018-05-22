@@ -30,9 +30,6 @@ public class Lock {
                 String username = message.get("username").toString();
                 String secret =  message.get("secret").toString();
                 
-                //First, it will write a "Lock_Request" to connectionServer hashmap
-                Control.getInstance().checkAllLocks(con, msg);
-                
                 //Check if this user exists
                 if (Control.getInstance().checkLocalUser(username)) {
                     
@@ -42,19 +39,11 @@ public class Lock {
 
                 } else {
                     //If the user is not in the local storage,
-                    //Add it to the userlist
-                    //Keep sending lock_request to others if it has other neighbour servers
-                    //If it is the end node, then it returns a lock_allowed
-                    Control.getInstance().addLocalUser(username, secret);
-                    
-                    if (Control.getInstance().getConnectionServers().size()==1){
-                        JSONObject lockAllowed = Command.createLockAllowed(username, secret);
-                        con.writeMsg(lockAllowed.toJSONString());
-                        closeConnection = false;
-                    }
-                    else{
-                        Control.getInstance().broadcast(msg);
-                    }
+                    //Send back lock_allowed
+                    JSONObject lockAllowed = Command.createLockAllowed(username, secret);
+                    con.writeMsg(lockAllowed.toJSONString());
+                    closeConnection = false;
+             
                 }
             }
         } catch (ParseException e) {

@@ -32,19 +32,19 @@ public class LockAllowed {
                 String username = message.get("username").toString();
                 String secret = message.get("secret").toString();
                 
+                Control.getInstance().unsetLockAckQueue(con, username + " " +secret);
+                Control.getInstance().addLockAllowedDenied(con,msg);
                 //First check whether it has received all lock_allowed from its neighbors
-                if (Control.getInstance().checkAllLocks(con,msg)){
+                if (Control.getInstance().checkAllLocks(username)){
                     //Writing the user info in local storage
                     Control.getInstance().addLocalUser(username, secret);
                     //If it has received all lock_allowed from its neighbors, it will continue to check whether it is inside 
                     //local register pending list.
                     if (Control.getInstance().changeInPendingList(username, secret)){
                         //If the client is registered in this server, it will return back the message
-                        closeConnection = false;
-                    }
-                    else{
-                        //If the client is not registerd in this server, it will broadcast this lock_allowed message.
-                        Control.getInstance().broadcast(msg);
+                        //Also, broadcast register success message to all other servers
+                        String registerSucMsg = Command.createRegisterSuccessBroadcast(username, secret).toJSONString();
+                        Control.getInstance().broadcast(registerSucMsg);
                         closeConnection = false;
                     }
                 }

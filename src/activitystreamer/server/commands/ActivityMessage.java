@@ -10,14 +10,15 @@ import org.json.simple.parser.ParseException;
 import activitystreamer.models.Command;
 import activitystreamer.server.Connection;
 import activitystreamer.server.Control;
-import activitystreamer.server.ControlBroadcast;
+import activitystreamer.server.Message;
 
 public class ActivityMessage {
 	
 	private boolean closeConnection=false;
 	private final Logger log = LogManager.getLogger();
 
-	public ActivityMessage(Connection con, String msg) {
+	@SuppressWarnings("unchecked")
+    public ActivityMessage(Connection con, String msg) {
 		
 		JSONParser parser = new JSONParser();
         JSONObject message;
@@ -32,21 +33,23 @@ public class ActivityMessage {
                 secret = message.get("secret").toString();
             }
             log.debug("check :"+username+"/"+secret);
-            if(username.equals("anonymous")) {//Anonymous logins
-            	//broadCast jsonString
-        		String actBroad = Command.createActivityBroadcast(msg, activity);
-        		ControlBroadcast.broadcastClients(actBroad);
-        		Control.getInstance().broadcast(actBroad);
+            if(username.equals("anonymous")) {
+                //Anonymous logins
+        		//Create a message and store them inside the queues
+        		Message newMsg = new Message(con, activity);
+        		Control.getInstance().addMessageToBufferQueue(newMsg);
+        		Control.getInstance().addToAllClientMsgBufferQueue(newMsg);
                 closeConnection = false;
                 return;
             }
             if(Login.checkUserLoggedIn(username)) {
             	//Start checking users
                 if(Control.getInstance().checkLocalUserAndSecret(username,secret)) {  
-                	//broadCast jsonString
-            		String actBroad = Command.createActivityBroadcast(msg, activity);
-            		ControlBroadcast.broadcastClients(actBroad);
-            		Control.getInstance().broadcast(actBroad);
+                    log.info("Checked successfully");
+            		//Create a message and store them inside the queues
+                    Message newMsg = new Message(con, activity);
+                    Control.getInstance().addMessageToBufferQueue(newMsg); 
+                    Control.getInstance().addToAllClientMsgBufferQueue(newMsg);
                     closeConnection = false;
                     return;
                 }else { 

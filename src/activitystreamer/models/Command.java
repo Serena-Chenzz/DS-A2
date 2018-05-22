@@ -1,14 +1,21 @@
 package activitystreamer.models;
 
 import java.util.ArrayList;
+
 import org.json.simple.JSONObject;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
+import activitystreamer.server.Message;
+
+//ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST are the commands we added
 public enum Command {
     AUTHENTICATE, INVALID_MESSAGE, AUTHENTICATION_FAIL, AUTHENTICATION_SUCCESS, LOGIN, LOGIN_SUCCESS, 
     REDIRECT, LOGIN_FAILED, LOGOUT, ACTIVITY_MESSAGE, SERVER_ANNOUNCE,
     ACTIVITY_BROADCAST, REGISTER, REGISTER_FAILED, REGISTER_SUCCESS, LOCK_REQUEST, 
-    LOCK_DENIED, LOCK_ALLOWED;
+    LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST,
+    USERS_REGISTERED_LIST;
 
 
     public static boolean contains(String commandName) {
@@ -87,16 +94,16 @@ public enum Command {
     
     //Create LOCK_REQUEST JSON object.
     @SuppressWarnings("unchecked")
-    public static JSONObject createLockRequest(String username, String secret, String id){
+    public static JSONObject createLockRequest(String username, String secret){
         JSONObject obj = new JSONObject();
         obj.put("command", LOCK_REQUEST.toString());
         obj.put("username", username);
         obj.put("secret", secret);
-        obj.put("id", id);
         
         return obj;
         
     }
+    
     
     @SuppressWarnings("unchecked")
     public static JSONObject createLockDenied(String username, String secret){
@@ -128,6 +135,16 @@ public enum Command {
     } 
     
     @SuppressWarnings("unchecked")
+    public static JSONObject createRegisterSuccessBroadcast(String username, String secret){
+        JSONObject obj = new JSONObject();
+        obj.put("command", REGISTER_SUCCESS_BROADCAST.toString());
+        obj.put("username", username);
+        obj.put("secret", secret);     
+        return obj;
+    }
+    
+    
+    @SuppressWarnings("unchecked")
     public static JSONObject createRegisterFailed(String username){
         JSONObject obj = new JSONObject();
         obj.put("command", REGISTER_FAILED.toString());
@@ -146,7 +163,7 @@ public enum Command {
     }
     
     @SuppressWarnings("unchecked")
-    public static String createAuthenticateSuccess(ArrayList neighborInfo, String uniqueId) {
+    public static String createAuthenticateSuccess(ArrayList<String> neighborInfo, String uniqueId) {
         JSONObject obj = new JSONObject();
         obj.put("command", AUTHENTICATION_SUCCESS.toString());
         obj.put("info",neighborInfo); 
@@ -206,15 +223,54 @@ public enum Command {
 	}
     
     @SuppressWarnings("unchecked")
-	public static String createActivityBroadcast(String string, JSONObject activity) {
+	public static String createActivityServerBroadcast(Message msg) {
 		JSONObject obj = new JSONObject();
+        obj.put("command", Command.ACTIVITY_SERVER_BROADCAST.toString());
+        obj.put("activity", msg.getActivity());
+        obj.put("timestamp", msg.getTimeStamp());
+        obj.put("sender_ip_address", msg.getSenderIp());
+        obj.put("sender_port_num", msg.getPortNum());
+        return obj.toJSONString();
+		
+	} 
+    
+    @SuppressWarnings("unchecked")
+    public static String createActivityBroadcast(JSONObject activity) {
+        JSONObject obj = new JSONObject();
         obj.put("command", Command.ACTIVITY_BROADCAST.toString());
         obj.put("activity", activity);
        return obj.toJSONString();
-		
-	}    
+        
+    }  
+    
+    @SuppressWarnings("unchecked")
+    public static String createActivityBroadcast(Message msg) {
+        JSONObject obj = new JSONObject();
+        obj.put("command", Command.ACTIVITY_BROADCAST.toString());
+        obj.put("activity", msg.getActivity());
+        return obj.toJSONString();
+        
+    } 
+    
+    @SuppressWarnings("unchecked")
+    public static String createActivityAcknowledgemnt(long timestamp, String senderIp, int portNum){
+        JSONObject obj = new JSONObject();
+        obj.put("command", Command.ACTIVITY_ACKNOWLEDGEMENT.toString());
+        obj.put("timestamp", timestamp);
+        obj.put("sender_ip_address", senderIp);
+        obj.put("sender_port_num", portNum); 
+        return obj.toJSONString();
+    }
+    
+    @SuppressWarnings("unchecked")
+    public static String usersRegisteredList(ArrayList<User> localUserList){
+    	Gson gson = new GsonBuilder().create();
+        String obj = gson.toJson(new UserListRequest(Command.USERS_REGISTERED_LIST.toString(),localUserList));
+        return obj;
+    }
+    
     //The following methods are used to check if a command message is in a right format
-    //For Register, Lock_Request, Lock_Denied, Lock_Allowed and Login
+    //For Register, Lock_Request, Lock_Denied, Lock_Allowed, Login and Register_Success_Broadcast
     public static boolean checkValidCommandFormat1(JSONObject obj){
         if (obj.containsKey("command")&& obj.containsKey("username")&&obj.containsKey("secret")){
             return true;
@@ -287,5 +343,29 @@ public enum Command {
         return false;
     }
     
+    //For Activity_acknowledgement
+    public static boolean checkValidActivityAcknowledgment(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("timestamp")&& 
+                obj.containsKey("sender_ip_address")&& obj.containsKey("sender_port_num")){
+            return true;
+        }
+        return false;
+    }
     
+    //For Activity_Server_Broadcast
+    public static boolean checkValidActivityServerBroadcast(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("activity")&& obj.containsKey("timestamp")&& 
+                obj.containsKey("sender_ip_address")&& obj.containsKey("sender_port_num")){
+            return true;
+        }
+        return false;
+    }
+    
+    //For Sending the current registered user list
+    public static boolean checkUsersRegisteredList(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("user_list")){
+            return true;
+        }
+        return false;
+    }
 }

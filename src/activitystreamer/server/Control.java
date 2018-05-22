@@ -1,18 +1,26 @@
 package activitystreamer.server;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.UUID;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
+
+import javax.jws.soap.SOAPBinding.Use;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import activitystreamer.server.commands.*;
 import activitystreamer.util.Settings;
@@ -22,7 +30,7 @@ public class Control extends Thread {
 
     protected static final Logger log = LogManager.getLogger();
     //The connections list will record all connections to this server
-    protected static ArrayList<Connection> connections;
+    protected static HashMap<Connection, Boolean> connections;
     private static ArrayList<Connection> connectionClients;
     //This hashmap is to record status of each connection
     protected static HashMap<String, ArrayList<String>> connectionServers;
@@ -30,20 +38,65 @@ public class Control extends Thread {
     private static ArrayList<String> pendingNeighbors;
     //This userlist is to store all user information locally in memory
     private static ArrayList<User> localUserList;
+    private static ArrayList<String> usernameList;
+    //Save the list of connected users plus timestamp and its connections
+    private static HashMap<Connection, String> userConnections = new HashMap<Connection, String>();
     //This registerList is a pending list for all registration applications
     private static HashMap<Connection, User> registerPendingList;
     private static String uniqueId; // unique id for a server
     protected static boolean term = false;
     private static Listener listener;
+    //Create a pending queue for each neighbor to serve as message buffer
+    private static HashMap<Connection, ArrayList<Message>> serverMsgBuffQueue;
+    private static HashMap<Connection, Boolean> serverMsgBuffActivator;
+    //A buffer queue to store the messages sent to clients
+    private static HashMap<Connection, ArrayList<Message>> clientMsgBuffQueue;
+    //String will be like "timestamp,senderId,senderPort"
+    private static HashMap<Connection, String> serverMsgAckQueue;
+    //Create a hashmap to record whether to send Authentication message again. If the timestamp is set to -1, it means 
+    //the connection has received a response
+    private static HashMap<Connection, Long> authenticationAckQueue;
+    //Create a hashmap to record whether to send a lock_requst again. If the timestamp is set to -1, it means the 
+    //connection has received a response(acknowledgment)
+    private static HashMap<Connection, HashMap<Long,String>> lockAckQueue;
+    private InetAddress ip;
 
     protected static Control control = null;
     protected static Load serverLoad;
-
-    public static Load getServerLoad() {
+    
+    public synchronized static ArrayList<Connection> getNeighbors(){
+        return neighbors;
+    }
+    
+    public synchronized static String getRemoteId(){
+        return uniqueId;
+    }
+    
+    public synchronized static HashMap<Connection,HashMap<Long,String>> getLockAckQueue(){
+        return lockAckQueue;
+    }
+    
+    public synchronized static HashMap<Connection, Long> getAuthenticationAckQueue(){
+        return authenticationAckQueue;
+    }
+    
+    public synchronized static HashMap<Connection, Boolean> getServerMsgBuffActivator(){
+        return serverMsgBuffActivator;
+    }
+    
+    public synchronized static HashMap<Connection, ArrayList<Message>> getServerMsgBuffQueue(){
+        return serverMsgBuffQueue;
+    }
+    
+    public synchronized static HashMap<Connection, ArrayList<Message>> getClientMsgBuffQueue(){
+        return clientMsgBuffQueue;
+    }
+    
+    public synchronized static Load getServerLoad() {
         return serverLoad;
     }
 
-    public static Control getInstance() {
+    public synchronized static Control getInstance() {
         if (control == null) {
             control = new Control();
         }
@@ -51,17 +104,32 @@ public class Control extends Thread {
     }
 
     public Control() {
+    	// initialize ip 
+        try {
+            ip = InetAddress.getLocalHost();
+        } catch (UnknownHostException e) {
+            log.error(e);
+        }
+    	
         // initialize the connections array
-        connections = new ArrayList<Connection>();
+        connections = new HashMap<Connection,Boolean>();
         connectionClients = new ArrayList<Connection>();
         //connectionServers is to record all replies from its neighbors and record all connection status.
         connectionServers = new HashMap<String, ArrayList<String>>();
         neighbors = new ArrayList<Connection>();
         pendingNeighbors = new ArrayList<String>();
         localUserList = new ArrayList<User>();
+        usernameList = new ArrayList<String>();
         registerPendingList = new HashMap<Connection, User>();
         serverLoad = new Load();
-        uniqueId = Settings.getLocalHostname() + " " + Settings.getLocalPort();
+        uniqueId = ip.getHostAddress() + " " + Settings.getLocalPort();
+        serverMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
+        serverMsgAckQueue = new HashMap<Connection, String>();
+        clientMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
+        serverMsgBuffActivator = new HashMap<Connection, Boolean>();
+        authenticationAckQueue = new HashMap<Connection, Long>();
+        lockAckQueue = new HashMap<Connection, HashMap<Long,String>>();
+        
         // start a listener
         try {
             listener = new Listener();
@@ -70,6 +138,7 @@ public class Control extends Thread {
             log.fatal("failed to startup a listening thread: " + e1);
             System.exit(-1);
         }
+        start();
     }
 
     public void initiateConnection() {
@@ -77,19 +146,186 @@ public class Control extends Thread {
         if (Settings.getRemoteHostname() != null) {
             createServerConnection(Settings.getRemoteHostname(), Settings.getRemotePort());
         }
+    }
+    
+    public void run() {
         // start server announce
-        new ServerAnnounce();
-
+        Thread serverAnnouce = new ServerAnnounce();
+        serverAnnouce.start();
+        // start broadcasting messages
+        Thread activityServerBrd = new ActivityServerBroadcastThread();
+        activityServerBrd.start();
+        //start client broadcasting messages
+        Thread activityClientBrd = new ActivityClientBroadcastThread();
+        activityClientBrd.start();
+        //Start sending Authentication Thread
+        Thread authenticationSending = new SendingAuthenticationThread();
+        authenticationSending.start();
+        //Start sending lockRequst Thread
+        Thread lockRequestSending = new SendingLockRequestThread();
+        lockRequestSending.start();
+        //Start userLocalList broadcast Thread
+        new UserListBroadCastThread();
+    }
+    
+    //Activator Methods
+    public synchronized void deactivateMessageQueue(Connection con){
+        serverMsgBuffActivator.put(con, false);
+    }
+    
+    public synchronized void activateMessageQueue(Connection con){
+        if (!serverMsgBuffActivator.isEmpty()){
+            serverMsgBuffActivator.put(con, true);
+        }
+    }
+    
+    //LockAckQueue methods
+    public synchronized void setLockAckQueue(Connection con, String lockRequest){
+        HashMap<Long,String> targetMap = lockAckQueue.get(con);
+        targetMap.put(System.currentTimeMillis(), lockRequest);
+    }
+    
+    public synchronized void setSuspendLockAck(Connection con, String lockRequest){
+        HashMap<Long,String> targetMap = lockAckQueue.get(con);
+        for(Long time:targetMap.keySet()){
+            if (targetMap.get(time).equals(lockRequest)){
+                targetMap.put(time, "Suspend");
+            }
+        }
+    }
+    
+    public synchronized void unsetLockAckQueue(Connection con, String lockRequest){
+        HashMap<Long,String> targetMap = lockAckQueue.get(con);
+        for(Long time:targetMap.keySet()){
+            if (targetMap.get(time).equals(lockRequest)){
+                targetMap.put(time, "Received Ack");
+            }
+        }
+    }
+    
+    //ClientBufferQueue Methods
+    public synchronized void initiateClientMsgBufferQueue(Connection con){
+        clientMsgBuffQueue.put(con, new ArrayList<Message>());  
+    }
+    public synchronized void removeClientFromMsgBuffer(Connection con){
+        clientMsgBuffQueue.remove(con);
+    }
+    
+    public synchronized void addToAllClientMsgBufferQueue(Message msg){
+        
+        for (Connection con: clientMsgBuffQueue.keySet()){
+            ArrayList<Message> targetList = clientMsgBuffQueue.get(con);
+            targetList.add(msg);
+        }
+       
+    }
+    
+    public synchronized void removeFromClientMsgBufferQueue(Connection con, Message msg){
+        if (clientMsgBuffQueue.containsKey(con)){
+            ArrayList<Message> targetList = clientMsgBuffQueue.get(con);
+            targetList.remove(msg);
+        }
+    }
+    
+    public synchronized HashMap<Connection, String> getUserConnections(){
+        return userConnections;
+    }
+    
+  //Methods about ackQueue
+    public synchronized void updateAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
+        serverMsgAckQueue.put(con, timestamp + " " +senderIp + " " + senderPort);
+    }
+    
+    public synchronized boolean checkAckQueue(long timestamp,String senderIp, int senderPort, Connection con){
+        String latestMsg = serverMsgAckQueue.get(con);
+        if (latestMsg != null){
+            String currMsg = timestamp + " " +senderIp + " " + senderPort;
+            if (latestMsg.equals(currMsg)){
+                return false;
+            }
+         }
+        return true;
+    }
+    
+    //Methods about serverMsgBufferQueue
+    public synchronized boolean addMessageToBufferQueue(Message ackMsg){
+        log.info("Adding " + ackMsg);
+        for (Connection con:  neighbors){
+            ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
+            targetList.add(ackMsg);
+            System.out.println("Server: " + serverMsgBuffQueue);
+        }
+        return false;
     }
     
     
-    public void createServerConnection(String hostname, int port) {
+    public synchronized boolean removeMessageFromBufferQueue(long timestamp, String senderIp, int senderPort, Connection con){
+        ArrayList<Message> targetList = serverMsgBuffQueue.get(con);
+        try{
+            if (targetList != null){
+                for (Message msg:targetList ){
+                    if ((msg.getTimeStamp()== timestamp)&&(msg.getSenderIp().equals(senderIp))
+                         && (msg.getPortNum()==senderPort)){
+                        targetList.remove(msg);
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }
+        catch (NoSuchElementException e){
+            log.error("Fail to remove the message. " + e.toString());
+        }
+        return false;
+    }
+    
+    //Cleanup methods
+    public synchronized void cleanMessageBufferQueue(Connection con){
+        if (serverMsgBuffQueue.containsKey(con)){
+            serverMsgBuffQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanAckQueue(Connection con){
+        if (serverMsgAckQueue.containsKey(con)){
+            serverMsgAckQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanClientMsgBuffQueue(Connection con){
+        if (clientMsgBuffQueue.containsKey(con)){
+            clientMsgBuffQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanServerMsgBuffActivator(Connection con){
+        if (serverMsgBuffActivator.containsKey(con)){
+            serverMsgBuffActivator.remove(con);
+        }
+    }
+    
+    public synchronized void cleanAuthenticationAckQueue(Connection con){
+        if (authenticationAckQueue.containsKey(con)){
+            authenticationAckQueue.remove(con);
+        }
+    }
+    
+    public synchronized void cleanLockAckQueue(Connection con){
+        if (lockAckQueue.containsKey(con)){
+            lockAckQueue.remove(con);
+        }
+    }
+  
+    
+    public synchronized void createServerConnection(String hostname, int port) {
         try {
                 Connection con = outgoingConnection(new Socket(hostname, port));
                 JSONObject authenticate = Command.createAuthenticate(Settings.getSecret(), uniqueId);
+                //initiate the authenticationAckQueue
+                authenticationAckQueue.put(con, System.currentTimeMillis());
                 String remoteId;
                 if(hostname == null){
-                    remoteId = "localhost" + " " + port;
+                    remoteId = ip.getHostAddress() + " " + port;
                 }else{
                     remoteId = hostname + " " + port;
                 }
@@ -136,6 +372,13 @@ public class Control extends Thread {
                                 con.writeMsg(invalidAuth);
                                 return true;
                             }
+                            //If an old connection sends an authentication message, it means a crashed server recovers within 60s. We need 
+                            //to avoid this happening
+                            else if (neighbors.contains(con)){
+                                String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
+                                con.writeMsg(invalidRestart);
+                                return true;
+                            }
                             else{
                                 log.debug(connectionServers.toString());
                                 Authenticate auth = new Authenticate(msg, con);
@@ -144,7 +387,7 @@ public class Control extends Thread {
                                     String remoteId = (String)userInput.get("remoteId");
                                     con.setRemoteId(remoteId);
                                     // Send all neighbors information to the new server
-                                    ArrayList neighborInfo = new ArrayList<String>();
+                                    ArrayList<String> neighborInfo = new ArrayList<String>();
                                     
                                     for(Connection nei : neighbors){
                                         neighborInfo.add( nei.getRemoteId());                                            
@@ -155,7 +398,20 @@ public class Control extends Thread {
                                     
                                     connectionServers.put(remoteId, new ArrayList<String>());
                                     neighbors.add(con);
+                                    
+                                    //Initialize message queue
+                                    serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                    serverMsgBuffActivator.put(con, true);
+                                    serverMsgAckQueue.put(con, null);
+                                    lockAckQueue.put(con, new HashMap<Long,String>());
+                                    
                                     log.debug("Add neighbor: " + con.getRemoteId());
+                                    
+                                    
+                                    //Send the list of local registered users to new auth server
+                                    String registerUserList = Command.usersRegisteredList(localUserList);
+                                    con.writeMsg(registerUserList);
+                                    
                                 }
                                 return auth.getResponse();
                             }
@@ -166,17 +422,26 @@ public class Control extends Thread {
                                 con.writeMsg(invalidAuth);                                
                             }                                        
                             else{
+                                //Change the authenticateAckQueue value to -1
+                                authenticationAckQueue.put(con, (long)(-1));
                                 // Set remoteId for this connection
                                 String remoteId = (String)userInput.get("remoteId");
                                 con.setRemoteId(remoteId);
                                 // Add connection into neighbor list
                                 connectionServers.put(remoteId, new ArrayList<String>());
                                 neighbors.add(con);
+                                
+                                //Initialize message queue
+                                serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                serverMsgBuffActivator.put(con, true);
+                                serverMsgAckQueue.put(con, null);
+                                lockAckQueue.put(con, new HashMap<Long,String>());
+                                
                                 pendingNeighbors.remove(remoteId);
                                 log.debug("Add neighbor: " + con.getRemoteId());
                                 
                                 
-                                // creat full connection
+                                // create full connection
                                 ArrayList<String> neighborInfo = (ArrayList<String>)userInput.get("info");
                                 for(String neiId : neighborInfo){
                                     String[] neiDetail = neiId.split(" ");
@@ -185,7 +450,6 @@ public class Control extends Thread {
                                         Integer port = Integer.parseInt(neiDetail[1]);
                                         log.debug("Send connection request to " + hostname + ", port " + port); 
                                         createServerConnection(hostname, port);
-                                            
                                     }
                                 }
                                 
@@ -193,6 +457,8 @@ public class Control extends Thread {
                             }
                             return true;
                         case AUTHENTICATION_FAIL:
+                            //Change the authenticateAckQueue value to -1
+                            authenticationAckQueue.put(con, (long)(-1));
                             String remoteId = (String)userInput.get("remoteId");
                             if (!Command.checkValidCommandFormat2(userInput)){
                                 String invalidAuth = Command.createInvalidMessage("Invalid Authenticate Fail Message Format");
@@ -235,6 +501,17 @@ public class Control extends Thread {
                             }
                             else{
                                 Register reg = new Register(msg, con);
+                                return reg.getCloseCon();
+                            }
+                            
+                        case REGISTER_SUCCESS_BROADCAST:
+                            if (!Command.checkValidCommandFormat1(userInput)){
+                                String invalidReg = Command.createInvalidMessage("Invalid Register_Success_Broadcast Message Format");
+                                con.writeMsg(invalidReg);
+                                return true;
+                            }
+                            else{
+                                RegisterSuccessBroadcast reg = new RegisterSuccessBroadcast(msg, con);
                                 return reg.getCloseCon();
                             }
         
@@ -307,16 +584,40 @@ public class Control extends Thread {
                                 return actMess.getResponse();
                             }
                             
-                        case ACTIVITY_BROADCAST:
-                            if (!Command.checkValidActivityBroadcast(userInput)){
-                                String invalidAc = Command.createInvalidMessage("Invalid ActivityBroadcast Message Format");
+                        case ACTIVITY_SERVER_BROADCAST:
+                            if (!Command.checkValidActivityServerBroadcast(userInput)){
+                                String invalidAc = Command.createInvalidMessage("Invalid ActivityServerBroadcast Message Format");
                                 con.writeMsg(invalidAc);
                                 return true;
                             }
                             else{
-                                ActivityBroadcast actBroad = new ActivityBroadcast(con, msg);
+                                ActivityServerBroadcast actBroad = new ActivityServerBroadcast(con, msg);
                                 return actBroad.getResponse();
                             }
+                        case ACTIVITY_ACKNOWLEDGEMENT:
+                            if (!Command.checkValidActivityAcknowledgment(userInput)){
+                                String invalidAc = Command.createInvalidMessage("Invalid ActivityAcknowledgement Message Format");
+                                con.writeMsg(invalidAc);
+                                return true;
+                            }
+                            else{
+                                ActivityAcknowledgment actAck = new ActivityAcknowledgment(con, msg);
+                                return actAck.getResponse();
+                            }
+                        case USERS_REGISTERED_LIST:
+                            if (!Command.checkUsersRegisteredList(userInput)){
+                            	String invalidMsg = Command.createInvalidMessage("the received message did not contain a correct command");
+                                con.writeMsg(invalidMsg);
+                                return true;
+                            }
+                            else{
+                            	Gson gson = new GsonBuilder().create();
+
+                                UserListRequest jsonUserList = gson.fromJson(msg,UserListRequest.class);
+                                new UserListReview(jsonUserList.getUserList());
+                                
+                            	return false;
+                            } 
                         case INVALID_MESSAGE:
                             //First, check its informarion format
                             if (!Command.checkValidCommandFormat2(userInput)){
@@ -332,11 +633,9 @@ public class Control extends Thread {
                             String invalidMsg = Command.createInvalidMessage("the received message did not contain a correct command");
                             con.writeMsg(invalidMsg);
                             return true;
-                        
                         }
                     }
                 }
-
         }  
         catch (ParseException e) {
             //If parseError occurs, the server should return an invalid message and close the connection
@@ -347,7 +646,18 @@ public class Control extends Thread {
         return true;
     }
 
-    
+	public synchronized void printRegisteredUsers() {
+    	usernameList.clear();
+    	try {
+			for(User user : localUserList) {
+	    		usernameList.add(user.getUsername());	
+	    	}
+    	}
+		catch(Exception e) {
+			
+		}
+    	log.info("Users registered:" +usernameList); 
+    }
     public synchronized boolean containsServer(String remoteId) {
         return connectionServers.containsKey(remoteId);
     }
@@ -433,12 +743,21 @@ public class Control extends Thread {
     public synchronized void deleteLocalUser(String username, String secret) {
         for(User user:localUserList){
             if (user.getUsername().equals(username)){
-                localUserList.remove(user);
+            	localUserList.remove(user);
             }
         }
     }
-
-    public synchronized boolean checkAllLocks(Connection con, String msg) {
+    
+    //Change certain connection to status 'Lock_suspend'
+    public synchronized void changeLockStatus(Connection con, String username){
+        if(connectionServers.containsKey(con.getRemoteId())){
+            connectionServers.get(con.getRemoteId()).add("LOCK_SUSPEND " + username);
+        }
+        System.out.println(connectionServers);
+    }
+    
+    //If return 0, means lock_denied. If 1,means there are some lock_suspend. If 2, means there are all lock_allowed.
+    public synchronized void addLockAllowedDenied(Connection con, String msg) {
         try {
             JSONParser parser = new JSONParser();
             JSONObject message = (JSONObject) parser.parse(msg);
@@ -449,22 +768,27 @@ public class Control extends Thread {
                 if (remoteId.equals(con.getRemoteId())) {
                     connectionServers.get(remoteId).add(command + " " + username);
                 }
-                log.debug("Updated hasmap, Con:" + con.getSocket() + " Value:" + connectionServers.get(remoteId));
+                log.debug("Updated hashmap, Con:" + con.getSocket() + " Value:" + connectionServers.get(remoteId));
                 
             }
-            //Step 2, check whether all the connection return a lock allowed/lock_request regarding to this user
-            for (String remoteId : connectionServers.keySet()){
-                if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username) || 
-                        connectionServers.get(remoteId).contains("LOCK_REQUEST " + username))){
-                    return false;
-                }
-            }
-            return true;
+            System.out.println(connectionServers);
             
         } catch (ParseException e) {
             log.error(e);
         }
-        return false;
+    }
+    
+    public synchronized boolean checkAllLocks(String username){
+        //Step 2, check whether all the connection return a lock allowed/lock_suspend regarding to this user
+        //lock_suspend means the connection has problem, and we don't need to wait for the response
+        for (String remoteId : connectionServers.keySet()){
+            if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username) || 
+                    connectionServers.get(remoteId).contains("LOCK_SUSPEND " + username))){
+                return false;
+            }
+        }
+        return true;
+        
     }
 
     public synchronized boolean broadcast(String msg) {     
@@ -485,6 +809,12 @@ public class Control extends Thread {
             neighbors.remove(con);
             connectionServers.remove(con.getRemoteId());
             registerPendingList.remove(con);
+            cleanMessageBufferQueue(con);
+            cleanAckQueue(con);
+            cleanClientMsgBuffQueue(con);
+            cleanServerMsgBuffActivator(con);
+            cleanAuthenticationAckQueue(con);
+            cleanLockAckQueue(con);
         }
     }
 
@@ -494,7 +824,7 @@ public class Control extends Thread {
     public synchronized Connection incomingConnection(Socket s) throws IOException {
         //log.debug("incomming connection: " + Settings.socketAddress(s));
         Connection c = new Connection(s);
-        connections.add(c);
+        connections.put(c, true);
         return c;
     }
 
@@ -504,7 +834,7 @@ public class Control extends Thread {
     public synchronized Connection outgoingConnection(Socket s) throws IOException {
         //log.debug("outgoing connection: " + s.toString());
         Connection c = new Connection(s);
-        connections.add(c);
+        connections.put(c,true);
         return c;
 
     }
@@ -516,7 +846,7 @@ public class Control extends Thread {
     	return term;
     }
 
-    public synchronized final ArrayList<Connection> getConnections() {
+    public synchronized final HashMap<Connection, Boolean> getConnections() {
         return connections;
     }
 
@@ -524,7 +854,7 @@ public class Control extends Thread {
         return connectionServers;
     }
 
-    public synchronized static String getUniqueId() {
+    public synchronized String getUniqueId() {
         return uniqueId;
     }
     
@@ -539,6 +869,15 @@ public class Control extends Thread {
 	public static void setConnectionClients(Connection con) {
 		log.debug("adding connection client: "+con);
 		connectionClients.add(con);
+	}
+	
+
+	public static ArrayList<User> getLocalUserList() {
+		return localUserList;
+	}
+
+	public static void setLocalUserList(ArrayList<User> localUserList) {
+		Control.localUserList = localUserList;
 	}
 
 }

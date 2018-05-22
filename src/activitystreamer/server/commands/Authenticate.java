@@ -33,7 +33,7 @@ public class Authenticate {
             message = (JSONObject) parser.parse(msg);
             String secret = (String) message.get("secret");
             if(!Settings.getSecret().equals(secret)){                
-                con.writeMsg(Command.createAuthenticateFailed(secret, Control.getUniqueId()));
+                con.writeMsg(Command.createAuthenticateFailed(secret, Control.getInstance().getUniqueId()));
                 closeConnection = true;
                 return;
             }
