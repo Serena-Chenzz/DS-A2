@@ -53,6 +53,8 @@ public class ActivityServerBroadcastThread extends Thread{
                                 String broadMsg = Command.createActivityServerBroadcast(msg);
                                 log.info("Sending Activity_broadcast message" + msg);
                                 con.writeMsg(broadMsg);
+                                System.out.println(serverMsgBuffQueue);
+                                System.out.println(serverMsgBuffActivator);
                             }
                             
                         }

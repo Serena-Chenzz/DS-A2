@@ -103,7 +103,7 @@ public class Connection extends Thread {
             String data = "";
             try {
                 //Start sending buffered messages
-                Control.getInstance().activateAllMessageQueue();
+                Control.getInstance().activateMessageQueue(this);
                 //If Control.process() returns true, then while loop finishes
                 while (!term && (data = inreader.readLine()) != null) {
                     //reset the starting time

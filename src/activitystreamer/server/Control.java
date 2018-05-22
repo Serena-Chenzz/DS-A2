@@ -173,13 +173,8 @@ public class Control extends Thread {
     }
     
     public synchronized void activateMessageQueue(Connection con){
-        serverMsgBuffActivator.put(con, true);
-    }
-    public synchronized void activateAllMessageQueue(){
         if (!serverMsgBuffActivator.isEmpty()){
-            for(Connection con: serverMsgBuffActivator.keySet()){
-                serverMsgBuffActivator.put(con, true);
-            }
+            serverMsgBuffActivator.put(con, true);
         }
     }
     
