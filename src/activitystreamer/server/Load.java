@@ -76,8 +76,8 @@ public class Load {
                     String hostname = serverList.get(id).hostname;
                     String portStr = serverList.get(id).portStr;
                     // send redirect infomation to client
-//                log.debug("Redirect to " + 
-//                        Connection.generateRemoteId(hostname, portStr));
+                    log.debug("Redirect to " + 
+                        Connection.generateRemoteId(hostname, portStr));
                     clientCon.writeMsg(Command.createRedirect(hostname, portStr));
                     // Then the connection needs to be terminated
                     return true;
@@ -91,7 +91,7 @@ public class Load {
     }
 
     public synchronized boolean checkServerExpired(Long currentTime, String serverId) {
-        long duration = currentTime - serverTime.get(serverId);
+        long duration = (currentTime - serverTime.get(serverId))/1000000000;
         log.debug("Server " + serverId + "'s duration is: " + duration);
         // if the server has no update within 6 seconds, return server expired;
         if (duration > 6) {
