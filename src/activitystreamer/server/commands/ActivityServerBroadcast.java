@@ -39,7 +39,8 @@ public class ActivityServerBroadcast {
                 if (Control.getInstance().checkAckQueue(timestamp, senderIp, portNum, con)){
                     String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, (int)portNum);
                     System.out.println("Sending Acknowledgment...");
-                    con.writeMsg(ackMsg);
+                    String relay_msg = Command.createRelayMessage(ackMsg, senderIp, portNum + "");
+                    Control.getInstance().sendMessageToRandomNeighbor(relay_msg);
                     Control.getInstance().updateAckQueue(timestamp, senderIp, portNum, con);
                     
                     Message newMsg = new Message(con,timestamp,activity);
@@ -50,7 +51,9 @@ public class ActivityServerBroadcast {
                 else{
                     String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, (int)portNum);
                     System.out.println("Sending Acknowledgment Again...");
-                    con.writeMsg(ackMsg);
+                    String relay_msg = Command.createRelayMessage(ackMsg, senderIp, portNum + "");
+                    Control.getInstance().sendMessageToRandomNeighbor(relay_msg);
+                    Control.getInstance().updateAckQueue(timestamp, senderIp, portNum, con);
                     closeConnection=false;
                 }
             }

@@ -39,24 +39,17 @@ public class SendingLockRequestThread extends Thread {
                                 if ((!message.equals("Received Ack"))&&(currentTime - sendingTime >= 2000)){
                                     String username = message.split(" ")[0];
                                     String secret = message.split(" ")[1];
-                                    JSONObject lockRequest = Command.createLockRequest(username, secret);
-                                    con.writeMsg(lockRequest.toJSONString());
-                                    if (!Control.getInstance().checkLocalUser(username)){
-                                        System.out.println("Changing lock status");
-                                        Control.getInstance().changeLockStatus(con, username);
-                                        //Control.getInstance().setSuspendLockAck(con, username + " " +secret);
-                                        if (Control.getInstance().checkAllLocks(username)){
-                                              //Writing the user info in local storage
-                                              Control.getInstance().addLocalUser(username, secret);
-                                              if (Control.getInstance().changeInPendingList(username, secret)){
-                                                  //If the client is registered in this server, it will return back the message
-                                                  //Also, broadcast register success message to all other servers
-                                                  String registerSucMsg = Command.createRegisterSuccessBroadcast(username, secret).toJSONString();
-                                                  Control.getInstance().broadcast(registerSucMsg);
-                                                  closeConnection = false;
-                                              }
-                                          }
-                                       }
+                                    
+                                    String senderipAddress = Control.getInstance().getUniqueId().split(" ")[0];
+                                    String senderportNum = Control.getInstance().getUniqueId().split(" ")[1];
+                                    JSONObject lockRequest = Command.createLockRequest(username, secret,senderipAddress,senderportNum);
+                                    
+                                    //Send this lock_request to relay_server
+                                    String targetIpAddress = con.getRemoteId().split(" ")[0];
+                                    String targetPortNum = con.getRemoteId().split(" ")[1];
+                                   
+                                    String relay_msg = Command.createRelayMessage(lockRequest.toJSONString(), targetIpAddress, targetPortNum);
+                                    Control.getInstance().sendMessageToRandomNeighbor(relay_msg);
                                     }
                              }
                         }

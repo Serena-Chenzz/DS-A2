@@ -33,7 +33,7 @@ public class UserListReview {
 					if(Control.getInstance().checkLocalUser(user.getUsername())) {
 						//Check if has same secret, add it to newLocalUserList
 						if(Control.getInstance().checkLocalUserAndSecret(user.getUsername(), user.getSecret())) {
-							System.out.println("nerdaa que paso: "+user);
+							//System.out.println("nerdaa que paso: "+user);
 							newLocalUserList.add(user);
 						//If user has different secret, then delete it from localUserList
 						}else {

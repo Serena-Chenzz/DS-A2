@@ -15,7 +15,7 @@ public enum Command {
     REDIRECT, LOGIN_FAILED, LOGOUT, ACTIVITY_MESSAGE, SERVER_ANNOUNCE,
     ACTIVITY_BROADCAST, REGISTER, REGISTER_FAILED, REGISTER_SUCCESS, LOCK_REQUEST, 
     LOCK_DENIED, LOCK_ALLOWED, ACTIVITY_SERVER_BROADCAST, ACTIVITY_ACKNOWLEDGEMENT, REGISTER_SUCCESS_BROADCAST,
-    USERS_REGISTERED_LIST;
+    USERS_REGISTERED_LIST, RELAY_MESSAGE;
 
 
     public static boolean contains(String commandName) {
@@ -25,6 +25,17 @@ public enum Command {
             }
         }
         return false;
+    }
+    
+    //Create relay_message
+    @SuppressWarnings("unchecked")
+    public static String createRelayMessage(String message, String targetIp, String targetPortNum ){
+        JSONObject obj = new JSONObject();
+        obj.put("command", RELAY_MESSAGE.toString());  
+        obj.put("target_ip_address", targetIp);
+        obj.put("target_port_num", targetPortNum);
+        obj.put("relay_message", message);
+        return obj.toJSONString();  
     }
     
     //Create LOGIN JSON object.
@@ -94,33 +105,38 @@ public enum Command {
     
     //Create LOCK_REQUEST JSON object.
     @SuppressWarnings("unchecked")
-    public static JSONObject createLockRequest(String username, String secret){
+    public static JSONObject createLockRequest(String username, String secret, String ipAddress, String portNum){
         JSONObject obj = new JSONObject();
         obj.put("command", LOCK_REQUEST.toString());
         obj.put("username", username);
         obj.put("secret", secret);
-        
+        obj.put("sender_ip_address", ipAddress);
+        obj.put("sender_port_num", portNum);
         return obj;
         
     }
     
     
     @SuppressWarnings("unchecked")
-    public static JSONObject createLockDenied(String username, String secret){
+    public static JSONObject createLockDenied(String username, String secret, String ipAddress, String portNum){
         JSONObject obj = new JSONObject();
         obj.put("command", LOCK_DENIED.toString());
         obj.put("username", username);
         obj.put("secret", secret);
+        obj.put("sender_ip_address", ipAddress);
+        obj.put("sender_port_num", portNum);
         
         return obj;
     }
     
     @SuppressWarnings("unchecked")
-    public static JSONObject createLockAllowed(String username, String secret){
+    public static JSONObject createLockAllowed(String username, String secret, String ipAddress, String portNum){
         JSONObject obj = new JSONObject();
         obj.put("command", LOCK_ALLOWED.toString());
         obj.put("username", username);
         obj.put("secret", secret);
+        obj.put("sender_ip_address", ipAddress);
+        obj.put("sender_port_num", portNum);
         
         return obj;
     }
@@ -364,6 +380,23 @@ public enum Command {
     //For Sending the current registered user list
     public static boolean checkUsersRegisteredList(JSONObject obj){
         if (obj.containsKey("command")&& obj.containsKey("user_list")){
+            return true;
+        }
+        return false;
+    }
+    
+  //For Sending relay_message
+    public static boolean checkRelayMessage(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("target_ip_address")&& obj.containsKey("target_port_num")&& obj.containsKey("relay_message")){
+            return true;
+        }
+        return false;
+    }
+    
+  //For Sending lock_request
+    public static boolean checkLockRequest(JSONObject obj){
+        if (obj.containsKey("command")&& obj.containsKey("username")&& obj.containsKey("secret")&& obj.containsKey("sender_ip_address")
+                && obj.containsKey("sender_port_num")){
             return true;
         }
         return false;

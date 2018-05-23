@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Random;
 
 import javax.jws.soap.SOAPBinding.Use;
 
@@ -151,7 +152,7 @@ public class Control extends Thread {
     public void run() {
         // start server announce
         Thread serverAnnouce = new ServerAnnounce();
-        serverAnnouce.start();
+        //serverAnnouce.start();
         // start broadcasting messages
         Thread activityServerBrd = new ActivityServerBroadcastThread();
         activityServerBrd.start();
@@ -165,7 +166,7 @@ public class Control extends Thread {
         Thread lockRequestSending = new SendingLockRequestThread();
         lockRequestSending.start();
         //Start userLocalList broadcast Thread
-        new UserListBroadCastThread();
+        //new UserListBroadCastThread();
     }
     
     //Activator Methods
@@ -194,12 +195,15 @@ public class Control extends Thread {
         }
     }
     
-    public synchronized void unsetLockAckQueue(Connection con, String lockRequest){
-        HashMap<Long,String> targetMap = lockAckQueue.get(con);
-        for(Long time:targetMap.keySet()){
-            if (targetMap.get(time).equals(lockRequest)){
-                targetMap.put(time, "Received Ack");
-            }
+    public synchronized void unsetLockAckQueue(String remoteId, String lockRequest){
+        for (Connection con: lockAckQueue.keySet()){
+            if (con.getRemoteId().equals(remoteId)){
+                HashMap<Long,String> targetMap = lockAckQueue.get(con);
+                for(Long time:targetMap.keySet()){
+                    if (targetMap.get(time).equals(lockRequest)){
+                        targetMap.put(time, "Received Ack");
+                    }
+                }}
         }
     }
     
@@ -374,15 +378,15 @@ public class Control extends Thread {
                             }
                             //If an old connection sends an authentication message, it means a crashed server recovers within 60s. We need 
                             //to avoid this happening
-                            for(Connection neighbor: neighbors){
-                                System.out.println(neighbor.getRemoteId());
-                                String targetId = (String)userInput.get("remoteId");
-                                if (neighbor.getRemoteId().equals(targetId)){
-                                    String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
-                                    con.writeMsg(invalidRestart);
-                                    return true;
-                                }
-                            }
+//                            for(Connection neighbor: neighbors){
+//                                System.out.println(neighbor.getRemoteId());
+//                                String targetId = (String)userInput.get("remoteId");
+//                                if (neighbor.getRemoteId().equals(targetId)){
+//                                    String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
+//                                    con.writeMsg(invalidRestart);
+//                                    return true;
+//                                }
+//                            }
                             log.debug(connectionServers.toString());
                             Authenticate auth = new Authenticate(msg, con);
                             if (!auth.getResponse()) {
@@ -519,7 +523,7 @@ public class Control extends Thread {
                             }
         
                         case LOCK_REQUEST:
-                            if (!Command.checkValidCommandFormat1(userInput)){
+                            if (!Command.checkLockRequest(userInput)){
                                 String invalidLoc = Command.createInvalidMessage("Invalid LockRequest Message Format");
                                 con.writeMsg(invalidLoc);
                                 return true;
@@ -530,7 +534,7 @@ public class Control extends Thread {
                             }
         
                         case LOCK_DENIED:
-                            if (!Command.checkValidCommandFormat1(userInput)){
+                            if (!Command.checkLockRequest(userInput)){
                                 String invalidLocD = Command.createInvalidMessage("Invalid LockDenied Message Format");
                                 con.writeMsg(invalidLocD);
                                 return true;
@@ -541,7 +545,7 @@ public class Control extends Thread {
                             }
         
                         case LOCK_ALLOWED:
-                            if (!Command.checkValidCommandFormat1(userInput)){
+                            if (!Command.checkLockRequest(userInput)){
                                 String invalidLocA = Command.createInvalidMessage("Invalid LockAllowed Message Format");
                                 con.writeMsg(invalidLocA);
                                 return true;
@@ -609,7 +613,7 @@ public class Control extends Thread {
                             }
                         case USERS_REGISTERED_LIST:
                             if (!Command.checkUsersRegisteredList(userInput)){
-                            	String invalidMsg = Command.createInvalidMessage("the received message did not contain a correct command");
+                            	String invalidMsg = Command.createInvalidMessage("Invalid UsersRegisteredList Message Format");
                                 con.writeMsg(invalidMsg);
                                 return true;
                             }
@@ -621,6 +625,17 @@ public class Control extends Thread {
                                 
                             	return false;
                             } 
+                        case RELAY_MESSAGE:
+                            if (!Command.checkRelayMessage(userInput)){
+                                String invalidMsg = Command.createInvalidMessage("Invalid RelayMessage Message Format");
+                                con.writeMsg(invalidMsg);
+                                return true;
+                            }
+                            else{
+                                RelayMessage resRelay = new RelayMessage(msg, con);
+                                return resRelay.getCloseCon();
+                            }
+                            
                         case INVALID_MESSAGE:
                             //First, check its informarion format
                             if (!Command.checkValidCommandFormat2(userInput)){
@@ -648,7 +663,15 @@ public class Control extends Thread {
         }
         return true;
     }
-
+    
+    //This method is to send a relay message to a random neighbor 
+    public synchronized void sendMessageToRandomNeighbor(String msg){
+        Random randomGenerator = new Random();
+        int index = randomGenerator.nextInt(neighbors.size());
+        Connection relayConn = neighbors.get(index);
+        relayConn.writeMsg(msg);
+    }
+    
 	public synchronized void printRegisteredUsers() {
     	usernameList.clear();
     	try {
@@ -763,7 +786,7 @@ public class Control extends Thread {
     }
     
     //If return 0, means lock_denied. If 1,means there are some lock_suspend. If 2, means there are all lock_allowed.
-    public synchronized void addLockAllowedDenied(Connection con, String msg) {
+    public synchronized void addLockAllowedDenied(String remoteId1, String msg) {
         try {
             JSONParser parser = new JSONParser();
             JSONObject message = (JSONObject) parser.parse(msg);
@@ -771,10 +794,10 @@ public class Control extends Thread {
             String username = message.get("username").toString();
             //Step 1, add this string to the connectionservers list
             for (String remoteId : connectionServers.keySet()) {
-                if (remoteId.equals(con.getRemoteId())) {
+                if (remoteId.equals(remoteId1)) {
                     connectionServers.get(remoteId).add(command + " " + username);
                 }
-                log.debug("Updated hashmap, Con:" + con.getSocket() + " Value:" + connectionServers.get(remoteId));
+                log.debug("Updated hashmap, Con:" + remoteId1 + " Value:" + connectionServers.get(remoteId));
                 
             }
             System.out.println(connectionServers);
@@ -788,8 +811,7 @@ public class Control extends Thread {
         //Step 2, check whether all the connection return a lock allowed/lock_suspend regarding to this user
         //lock_suspend means the connection has problem, and we don't need to wait for the response
         for (String remoteId : connectionServers.keySet()){
-            if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username) || 
-                    connectionServers.get(remoteId).contains("LOCK_SUSPEND " + username))){
+            if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username))){
                 return false;
             }
         }
