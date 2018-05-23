@@ -324,7 +324,7 @@ public class Control extends Thread {
                 //initiate the authenticationAckQueue
                 authenticationAckQueue.put(con, System.currentTimeMillis());
                 String remoteId;
-                if(hostname == null){
+                if(hostname == "localhost"){
                     remoteId = ip.getHostAddress() + " " + port;
                 }else{
                     remoteId = hostname + " " + port;
@@ -893,6 +893,7 @@ public class Control extends Thread {
 	}
 
 	public static void setLocalUserList(ArrayList<User> localUserList) {
+		Control.localUserList.clear();
 		Control.localUserList = localUserList;
 	}
 
