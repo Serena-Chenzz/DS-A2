@@ -114,6 +114,9 @@ public class Connection extends Thread {
                 closeCon();
             }
             catch (SocketException e){
+                if (term){
+                    open=false;
+                }
                 //log.error("connection error: " + e.toString());
                 //Start the timer
                 if (this.timerStart == 0){

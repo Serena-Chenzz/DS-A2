@@ -324,7 +324,7 @@ public class Control extends Thread {
                 //initiate the authenticationAckQueue
                 authenticationAckQueue.put(con, System.currentTimeMillis());
                 String remoteId;
-                if(hostname == null){
+                if(hostname == "localhost"){
                     remoteId = ip.getHostAddress() + " " + port;
                 }else{
                     remoteId = hostname + " " + port;
@@ -374,45 +374,48 @@ public class Control extends Thread {
                             }
                             //If an old connection sends an authentication message, it means a crashed server recovers within 60s. We need 
                             //to avoid this happening
-                            else if (neighbors.contains(con)){
-                                String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
-                                con.writeMsg(invalidRestart);
-                                return true;
-                            }
-                            else{
-                                log.debug(connectionServers.toString());
-                                Authenticate auth = new Authenticate(msg, con);
-                                if (!auth.getResponse()) {
-                                    // Set remoteId for this connection
-                                    String remoteId = (String)userInput.get("remoteId");
-                                    con.setRemoteId(remoteId);
-                                    // Send all neighbors information to the new server
-                                    ArrayList<String> neighborInfo = new ArrayList<String>();
-                                    
-                                    for(Connection nei : neighbors){
-                                        neighborInfo.add( nei.getRemoteId());                                            
-                                    }
-                                    String respondMsg = Command.createAuthenticateSuccess(neighborInfo, uniqueId);
-                                    log.debug("Respond to authentication with message " + respondMsg);
-                                    con.writeMsg(respondMsg);
-                                    
-                                    connectionServers.put(remoteId, new ArrayList<String>());
-                                    neighbors.add(con);
-                                    
-                                    //Initialize message queue
-                                    serverMsgBuffQueue.put(con, new ArrayList<Message>());
-                                    serverMsgBuffActivator.put(con, true);
-                                    serverMsgAckQueue.put(con, null);
-                                    lockAckQueue.put(con, new HashMap<Long,String>());
-                                    
-                                    log.debug("Add neighbor: " + con.getRemoteId());
-                                    
-                                    
-                                    //Send the list of local registered users to new auth server
-                                    String registerUserList = Command.usersRegisteredList(localUserList);
-                                    con.writeMsg(registerUserList);
-                                    
+                            for(Connection neighbor: neighbors){
+                                System.out.println(neighbor.getRemoteId());
+                                String targetId = (String)userInput.get("remoteId");
+                                if (neighbor.getRemoteId().equals(targetId)){
+                                    String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
+                                    con.writeMsg(invalidRestart);
+                                    return true;
                                 }
+                            }
+                            log.debug(connectionServers.toString());
+                            Authenticate auth = new Authenticate(msg, con);
+                            if (!auth.getResponse()) {
+                                // Set remoteId for this connection
+                                String remoteId = (String)userInput.get("remoteId");
+                                con.setRemoteId(remoteId);
+                                // Send all neighbors information to the new server
+                                ArrayList<String> neighborInfo = new ArrayList<String>();
+                                
+                                for(Connection nei : neighbors){
+                                    neighborInfo.add( nei.getRemoteId());                                            
+                                }
+                                String respondMsg = Command.createAuthenticateSuccess(neighborInfo, uniqueId);
+                                log.debug("Respond to authentication with message " + respondMsg);
+                                con.writeMsg(respondMsg);
+                                
+                                connectionServers.put(remoteId, new ArrayList<String>());
+                                neighbors.add(con);
+                                
+                                //Initialize message queue
+                                serverMsgBuffQueue.put(con, new ArrayList<Message>());
+                                serverMsgBuffActivator.put(con, true);
+                                serverMsgAckQueue.put(con, null);
+                                lockAckQueue.put(con, new HashMap<Long,String>());
+                                
+                                log.debug("Add neighbor: " + con.getRemoteId());
+                                
+                                
+                                //Send the list of local registered users to new auth server
+                                String registerUserList = Command.usersRegisteredList(localUserList);
+                                con.writeMsg(registerUserList);
+                                
+                                
                                 return auth.getResponse();
                             }
                         case AUTHENTICATION_SUCCESS:
@@ -689,7 +692,10 @@ public class Control extends Thread {
             User user = mentry.getValue();
             if (user.equals(targetUser)) {
                 JSONObject response = Command.createRegisterSuccess(username);
-                registerPendingList.remove(con);
+                if (checkAllLockAllowed(username)){
+                    registerPendingList.remove(con);
+                }
+                System.out.println(registerPendingList);
                 con.writeMsg(response.toJSONString());
                 // check if it needs redirect
                 if(serverLoad.checkRedirect(con)){
@@ -790,6 +796,16 @@ public class Control extends Thread {
         return true;
         
     }
+    
+    public synchronized boolean checkAllLockAllowed(String username){
+        for (String remoteId : connectionServers.keySet()){
+            if (!(connectionServers.get(remoteId).contains("LOCK_ALLOWED " + username))){
+                return false;
+            }
+        }
+        return true;
+        
+    }
 
     public synchronized boolean broadcast(String msg) {     
         for (Connection nei : neighbors) {
@@ -877,6 +893,7 @@ public class Control extends Thread {
 	}
 
 	public static void setLocalUserList(ArrayList<User> localUserList) {
+		Control.localUserList.clear();
 		Control.localUserList = localUserList;
 	}
 

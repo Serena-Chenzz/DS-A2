@@ -28,9 +28,7 @@ public class ServerAnnounce extends Thread{
     	//start();
     	try {
             ip = InetAddress.getLocalHost();
- 
         } catch (UnknownHostException e) {
- 
         	log.error(e);
         }
     }
@@ -44,7 +42,17 @@ public class ServerAnnounce extends Thread{
 				// do something with 5 second intervals in between
 				try {
 					load = Load.getOwnLoad();
-					JSONObject serverAnnounce = Command.createServerAnnounce(Control.getInstance().getUniqueId(),load,ip.getHostAddress(),Settings.getLocalPort()); 
+					JSONObject serverAnnounce;
+					if(Settings.getLocalHostname()=="localhost") {
+						serverAnnounce = Command.createServerAnnounce(
+								Control.getInstance().getUniqueId(),load,ip.getHostAddress(),Settings.getLocalPort()
+						);
+					}else {
+						serverAnnounce = Command.createServerAnnounce(
+								Control.getInstance().getUniqueId(),load,Settings.getLocalHostname(),Settings.getLocalPort()
+						);
+					}
+					 
 					Control.getInstance().broadcast(serverAnnounce.toJSONString());
 					Control.getInstance().printRegisteredUsers();
 					Thread.sleep(Settings.getActivityInterval());
@@ -67,7 +75,6 @@ public class ServerAnnounce extends Thread{
             con.closeCon();
         }
             
-        
 		Control.getInstance().listenAgain();;
     }
     
