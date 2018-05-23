@@ -56,23 +56,23 @@ public class Load {
         loadMap.put(id, Integer.parseInt(userInput.get("load").toString()));
         serverTime.put(id, System.nanoTime());
         String output = "";
-        for (Map.Entry<String, Integer> entry : loadMap.entrySet()) {
+        for (Map.Entry<String, Long> entry : serverTime.entrySet()) {
             output = output + entry.getKey() + ':' + entry.getValue() + '\n';
         }
-        //log.debug("Current Load Infomation: " + output);
+        //log.debug("Current Server Time Infomation: " + output);
     }
 
     // Check if 
     public synchronized boolean checkRedirect(Connection clientCon) {
         int ownLoad = getOwnLoad();
         Long currentTime = System.nanoTime();
-        // search for the server that is at least 2 clients less than its own
+        // search for the server that is at least 1 clients less than its own
         for (Map.Entry<String, Integer> entry : loadMap.entrySet()) {
             // check the expiration of servers
             String id = entry.getKey();
             if (!checkServerExpired(currentTime, id)) {
                 Integer load = entry.getValue();
-                if (load < ownLoad - 2) {
+                if (load < ownLoad - 1) {
                     String hostname = serverList.get(id).hostname;
                     String portStr = serverList.get(id).portStr;
                     // send redirect infomation to client
@@ -94,7 +94,7 @@ public class Load {
         long duration = (currentTime - serverTime.get(serverId))/1000000000;
         log.debug("Server " + serverId + "'s duration is: " + duration);
         // if the server has no update within 6 seconds, return server expired;
-        if (duration > 6) {
+        if (duration > 20) {
             return true;
         }
         // if the server has no update within 60 seconds, remove the server and return server expired;
@@ -108,7 +108,8 @@ public class Load {
     }
 
     public synchronized static int getOwnLoad() {
-        return Control.getInstance().getConnections().size() - Control.getInstance().getConnectionServers().size();
+        return Control.getUserConnections().size();
+//        return Control.getInstance().getConnections().size() - Control.getInstance().getConnectionServers().size();
     }
 
 }

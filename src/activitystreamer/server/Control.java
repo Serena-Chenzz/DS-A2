@@ -231,7 +231,7 @@ public class Control extends Thread {
         }
     }
     
-    public synchronized HashMap<Connection, String> getUserConnections(){
+    public synchronized static HashMap<Connection, String> getUserConnections(){
         return userConnections;
     }
     
@@ -843,7 +843,8 @@ public class Control extends Thread {
     public synchronized void connectionClosed(Connection con) {
         if (!term) {
             connections.remove(con);
-            getConnectionClients().remove(con);
+            connectionClients.remove(con);
+            userConnections.remove(con);
             neighbors.remove(con);
             connectionServers.remove(con.getRemoteId());
             registerPendingList.remove(con);
