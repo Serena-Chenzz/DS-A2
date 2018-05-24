@@ -152,7 +152,7 @@ public class Control extends Thread {
     public void run() {
         // start server announce
         Thread serverAnnouce = new ServerAnnounce();
-        //serverAnnouce.start();
+        serverAnnouce.start();
         // start broadcasting messages
         Thread activityServerBrd = new ActivityServerBroadcastThread();
         activityServerBrd.start();
@@ -166,7 +166,7 @@ public class Control extends Thread {
         Thread lockRequestSending = new SendingLockRequestThread();
         lockRequestSending.start();
         //Start userLocalList broadcast Thread
-        //new UserListBroadCastThread();
+        new UserListBroadCastThread();
     }
     
     //Activator Methods
