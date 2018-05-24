@@ -868,13 +868,13 @@ public class Control extends Thread {
             neighbors.remove(con);
             connectionServers.remove(con.getRemoteId());
             sendBufferedUsers();
-//            registerPendingList.remove(con);
-//            cleanMessageBufferQueue(con);
-//            cleanAckQueue(con);
-//            cleanClientMsgBuffQueue(con);
-//            cleanServerMsgBuffActivator(con);
-//            cleanAuthenticationAckQueue(con);
-//            cleanLockAckQueue(con);
+            registerPendingList.remove(con);
+            cleanMessageBufferQueue(con);
+            cleanAckQueue(con);
+            cleanClientMsgBuffQueue(con);
+            cleanServerMsgBuffActivator(con);
+            cleanAuthenticationAckQueue(con);
+            cleanLockAckQueue(con);
         }
     }
 

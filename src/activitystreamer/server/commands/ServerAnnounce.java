@@ -40,7 +40,6 @@ public class ServerAnnounce extends Thread{
     	int load = 0;
     	HashMap<Connection,Boolean> connections = Control.getInstance().getConnections();
     	while(!Control.getInstance().getTerm()){
-    	        System.out.println(Control.getConnectionClients());
 				// do something with 5 second intervals in between
 				try {
 					load = Load.getOwnLoad();
