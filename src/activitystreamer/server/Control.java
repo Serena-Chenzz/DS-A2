@@ -377,16 +377,14 @@ public class Control extends Thread {
                                 return true;
                             }
                             //If an old connection sends an authentication message, it means a crashed server recovers within 60s. We need 
-                            //to avoid this happening
-//                            for(Connection neighbor: neighbors){
-//                                System.out.println(neighbor.getRemoteId());
-//                                String targetId = (String)userInput.get("remoteId");
-//                                if (neighbor.getRemoteId().equals(targetId)){
-//                                    String invalidRestart = Command.createInvalidMessage("Please retry after 60s. You restart too quickly!");
-//                                    con.writeMsg(invalidRestart);
-//                                    return true;
-//                                }
-//                            }
+                            //to remove the old connections.
+                            for(Connection neighbor: neighbors){
+                                System.out.println(neighbor.getRemoteId());
+                                String targetId = (String)userInput.get("remoteId");
+                                if (neighbor.getRemoteId().equals(targetId)){
+                                    connectionClosed(neighbor);
+                                }
+                            }
                             log.debug(connectionServers.toString());
                             Authenticate auth = new Authenticate(msg, con);
                             if (!auth.getResponse()) {
@@ -666,10 +664,12 @@ public class Control extends Thread {
     
     //This method is to send a relay message to a random neighbor 
     public synchronized void sendMessageToRandomNeighbor(String msg){
-        Random randomGenerator = new Random();
-        int index = randomGenerator.nextInt(neighbors.size());
-        Connection relayConn = neighbors.get(index);
-        relayConn.writeMsg(msg);
+        if(neighbors.size() > 0){
+            Random randomGenerator = new Random();
+            int index = randomGenerator.nextInt(neighbors.size());
+            Connection relayConn = neighbors.get(index);
+            relayConn.writeMsg(msg);
+        }
     }
     
 	public synchronized void printRegisteredUsers() {
@@ -836,7 +836,27 @@ public class Control extends Thread {
         // need failure model
         return true;
     }
+    
+    public synchronized void sendBufferedUsers(){
+        //Check all users in registerPendingList
+        for (User user: registerPendingList.values()){
+            String username = user.getUsername();
+            String secret = user.getSecret();
 
+            if (Control.getInstance().checkAllLocks(username)){
+                //Writing the user info in local storage
+                Control.getInstance().addLocalUser(username, secret);
+                //If it has received all lock_allowed from its neighbors, it will continue to check whether it is inside 
+                //local register pending list.
+                if (Control.getInstance().changeInPendingList(username, secret)){
+                    //If the client is registered in this server, it will return back the message
+                    //Also, broadcast register success message to all other servers
+                    String registerSucMsg = Command.createRegisterSuccessBroadcast(username, secret).toJSONString();
+                    Control.getInstance().broadcast(registerSucMsg);
+                }
+            }
+        }
+    }
     /*
 	 * The connection has been closed by the other party.
      */
@@ -847,13 +867,14 @@ public class Control extends Thread {
             userConnections.remove(con);
             neighbors.remove(con);
             connectionServers.remove(con.getRemoteId());
-            registerPendingList.remove(con);
-            cleanMessageBufferQueue(con);
-            cleanAckQueue(con);
-            cleanClientMsgBuffQueue(con);
-            cleanServerMsgBuffActivator(con);
-            cleanAuthenticationAckQueue(con);
-            cleanLockAckQueue(con);
+            sendBufferedUsers();
+//            registerPendingList.remove(con);
+//            cleanMessageBufferQueue(con);
+//            cleanAckQueue(con);
+//            cleanClientMsgBuffQueue(con);
+//            cleanServerMsgBuffActivator(con);
+//            cleanAuthenticationAckQueue(con);
+//            cleanLockAckQueue(con);
         }
     }
 
