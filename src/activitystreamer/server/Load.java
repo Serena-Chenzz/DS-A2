@@ -83,7 +83,7 @@ public class Load {
                     return true;
                 }
             }else{
-                return true;
+                log.debug("Server " + id + " expired.");
             }
         }
         // the connection needn't to be terminated
@@ -109,7 +109,7 @@ public class Load {
 
     public synchronized static int getOwnLoad() {
         return Control.getUserConnections().size();
-//        return Control.getInstance().getConnections().size() - Control.getInstance().getConnectionServers().size();
+
     }
 
 }
