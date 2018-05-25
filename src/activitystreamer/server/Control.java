@@ -262,6 +262,14 @@ public class Control extends Thread {
         return false;
     }
     
+    public synchronized boolean checkRegisterPendingList(String username){
+        for (User user:registerPendingList.values()){
+            if(user.getUsername().equals(username)){
+                return true;
+            }
+        }
+        return false;
+    }
     
     public synchronized boolean removeMessageFromBufferQueue(long timestamp, String senderIp, int senderPort, Connection con){
         ArrayList<Message> targetList = serverMsgBuffQueue.get(con);

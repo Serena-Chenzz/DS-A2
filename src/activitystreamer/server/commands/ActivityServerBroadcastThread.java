@@ -63,7 +63,7 @@ public class ActivityServerBroadcastThread extends Thread{
                         }
                     }
                 }
-                Thread.sleep(2000);
+                Thread.sleep(1000);
             }catch(ConcurrentModificationException e){
                 log.info("Block iterating arrays when modifying it");
             }catch (InterruptedException e){
