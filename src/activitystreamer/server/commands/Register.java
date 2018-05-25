@@ -56,8 +56,10 @@ public class Register {
             }
             else {
             	log.info("Start broadcasting lock_request");
+            	String ipAddress = Control.getInstance().getUniqueId().split(" ")[0];
+            	String portNum = Control.getInstance().getUniqueId().split(" ")[1];
                 Control.getInstance().addUserToRegistePendingList(username, secret, con);
-                JSONObject lockRequest = Command.createLockRequest(username, secret);
+                JSONObject lockRequest = Command.createLockRequest(username, secret, ipAddress,portNum);
                 Control.getInstance().broadcast(lockRequest.toJSONString());
                 
                 for (Connection con2: Control.getNeighbors()){

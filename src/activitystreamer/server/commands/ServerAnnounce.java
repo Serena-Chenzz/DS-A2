@@ -36,6 +36,7 @@ public class ServerAnnounce extends Thread{
     
     @Override
     public void run() {
+        
     	int load = 0;
     	HashMap<Connection,Boolean> connections = Control.getInstance().getConnections();
     	while(!Control.getInstance().getTerm()){

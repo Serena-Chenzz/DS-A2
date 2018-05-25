@@ -291,6 +291,7 @@ public class ClientSkeleton extends Thread {
             if (socket != null) {
                 try {
                     socket.close();
+                    System.out.println("socket is closing...");
                     if(redirect){
                         if(textFrame != null){
                             textFrame.setVisible(false);

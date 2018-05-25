@@ -31,9 +31,11 @@ public class LockAllowed {
                 
                 String username = message.get("username").toString();
                 String secret = message.get("secret").toString();
+                String senderIp = message.get("sender_ip_address").toString();
+                String senderPort = message.get("sender_port_num").toString();
                 
-                Control.getInstance().unsetLockAckQueue(con, username + " " +secret);
-                Control.getInstance().addLockAllowedDenied(con,msg);
+                Control.getInstance().unsetLockAckQueue(senderIp + " " + senderPort, username + " " +secret);
+                Control.getInstance().addLockAllowedDenied(senderIp + " " + senderPort,msg);
                 //First check whether it has received all lock_allowed from its neighbors
                 if (Control.getInstance().checkAllLocks(username)){
                     //Writing the user info in local storage

@@ -51,8 +51,11 @@ public class ActivityServerBroadcastThread extends Thread{
                                 //Broadcast the first message
                                 Message msg = targetList.get(0);
                                 String broadMsg = Command.createActivityServerBroadcast(msg);
-                                log.info("Sending Activity_broadcast message" + msg);
-                                con.writeMsg(broadMsg);
+                                String targetIp = con.getRemoteId().split(" ")[0];
+                                String targetPortNum = con.getRemoteId().split(" ")[1];
+                                String relayMsg = Command.createRelayMessage(broadMsg, targetIp, targetPortNum);
+                                log.info("Sending Activity_broadcast message" + relayMsg);
+                                Control.getInstance().sendMessageToRandomNeighbor(relayMsg);
                                 System.out.println(serverMsgBuffQueue);
                                 System.out.println(serverMsgBuffActivator);
                             }

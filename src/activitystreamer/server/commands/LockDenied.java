@@ -35,14 +35,16 @@ public class LockDenied {
                 JSONObject message = (JSONObject)parser.parse(msg);
                 String username= message.get("username").toString();
                 String secret= message.get("secret").toString();
+                String senderIp = message.get("sender_ip_address").toString();
+                String senderPort = message.get("sender_port_num").toString();
                 
                 //Change status in lockAckQueue
-                Control.getInstance().unsetLockAckQueue(con, username + " " +secret);
+                Control.getInstance().unsetLockAckQueue(senderIp + " " + senderPort, username + " " +secret);
                 
                 //Record the status to this server
                 //Delete this user from the pending list
                 //And broadcast the lock_denied
-                Control.getInstance().addLockAllowedDenied(con,msg);
+                Control.getInstance().addLockAllowedDenied(senderIp + " " + senderPort,msg);
                 Control.getInstance().deleteFromPendingList(username, secret);
                 if(Control.getInstance().checkLocalUser(username)){
                     Control.getInstance().deleteLocalUser(username, secret);

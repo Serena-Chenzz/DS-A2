@@ -29,19 +29,27 @@ public class Lock {
                 JSONObject message = (JSONObject) parser.parse(msg);
                 String username = message.get("username").toString();
                 String secret =  message.get("secret").toString();
+                String target_ip = message.get("sender_ip_address").toString();
+                String target_port = message.get("sender_port_num").toString();
+                
+                String sender_ip = Control.getInstance().getUniqueId().split(" ")[0];
+                String sender_port = Control.getInstance().getUniqueId().split(" ")[1];
+                
                 
                 //Check if this user exists
                 if (Control.getInstance().checkLocalUser(username)) {
                     
-                    JSONObject lockDenied = Command.createLockDenied(username, secret);
-                    //broadcast this Lock_denied message to all neighbours
-                    Control.getInstance().broadcast(lockDenied.toJSONString());
+                    JSONObject lockDenied = Command.createLockDenied(username, secret, sender_ip, sender_port);
+                    String relayMsg = Command.createRelayMessage(lockDenied.toJSONString(), target_ip, target_port);
+                    Control.getInstance().sendMessageToRandomNeighbor(relayMsg);
 
                 } else {
                     //If the user is not in the local storage,
                     //Send back lock_allowed
-                    JSONObject lockAllowed = Command.createLockAllowed(username, secret);
-                    con.writeMsg(lockAllowed.toJSONString());
+                    JSONObject lockAllowed = Command.createLockAllowed(username, secret, sender_ip, sender_port);
+                    String relayMsg = Command.createRelayMessage(lockAllowed.toJSONString(), target_ip, target_port);
+                    Control.getInstance().sendMessageToRandomNeighbor(relayMsg);
+                    
                     closeConnection = false;
              
                 }
