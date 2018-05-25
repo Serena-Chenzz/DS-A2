@@ -37,7 +37,7 @@ public class Lock {
                 
                 
                 //Check if this user exists
-                if (Control.getInstance().checkLocalUser(username)) {
+                if (Control.getInstance().checkLocalUser(username)||Control.getInstance().checkRegisterPendingList(username)) {
                     
                     JSONObject lockDenied = Command.createLockDenied(username, secret, sender_ip, sender_port);
                     String relayMsg = Command.createRelayMessage(lockDenied.toJSONString(), target_ip, target_port);
