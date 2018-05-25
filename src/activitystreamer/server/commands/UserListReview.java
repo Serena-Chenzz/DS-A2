@@ -15,6 +15,16 @@ public class UserListReview {
 	
 	public UserListReview(ArrayList<User> localUserList) {
 		
+		//Nested array to avoid duplicated user issues
+		for(int i = 0; i < localUserList.size(); i++) {
+            for(int j = i + 1; j < localUserList.size(); j++) {
+                if(localUserList.get(i).equals(localUserList.get(j))){
+                	localUserList.remove(j);
+                    j--;
+                }
+            }
+        }
+		
 		try {//Check for every user coming from the userList message if:
 			for(User user : localUserList) { //If user does not exist in the list, then do the following
 				if(!Control.getLocalUserList().contains(user)) { //If user exists in current localUserList, then:
