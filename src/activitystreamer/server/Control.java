@@ -378,12 +378,18 @@ public class Control extends Thread {
                             }
                             //If an old connection sends an authentication message, it means a crashed server recovers within 60s. We need 
                             //to remove the old connections.
+                            boolean serverWithOldIpPort = false;
+                            Connection closedNei = null;
                             for(Connection neighbor: neighbors){
                                 System.out.println(neighbor.getRemoteId());
                                 String targetId = (String)userInput.get("remoteId");
                                 if (neighbor.getRemoteId().equals(targetId)){
-                                    connectionClosed(neighbor);
+                                    serverWithOldIpPort = true;
+                                    closedNei = neighbor;
                                 }
+                            }
+                            if (serverWithOldIpPort&& (closedNei!=null)){
+                                connectionClosed(closedNei);
                             }
                             log.debug(connectionServers.toString());
                             Authenticate auth = new Authenticate(msg, con);
