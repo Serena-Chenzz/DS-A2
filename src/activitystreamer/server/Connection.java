@@ -6,8 +6,11 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.ConnectException;
 import java.net.Socket;
+import java.net.ConnectException;
 import java.net.SocketException;
+import java.util.logging.Level;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -76,7 +79,12 @@ public class Connection extends Thread {
         if (open) {
             outwriter.println(msg);
             outwriter.flush();
-            System.out.println("\n--Sending "+msg+" to: "+socket);
+            if (this.getRemoteId()!=null){
+                System.out.println("\n--Sending "+msg);
+            }
+            else{
+                System.out.println("\n--Sending "+msg+" to: "+this.getRemoteId());
+            }
             return true;
         }
         return false;
@@ -103,13 +111,28 @@ public class Connection extends Thread {
             String data = "";
             try {
                 //Start sending buffered messages
-                Control.getInstance().activateMessageQueue(this);
+                Control.getInstance().activateMessageQueue(this.getRemoteId());
                 //If Control.process() returns true, then while loop finishes
                 while (!term && (data = inreader.readLine()) != null) {
                     //reset the starting time
                     this.timerStart = 0;
                     term = Control.getInstance().process(this, data);               
                 }
+//                if (getRemoteId().equals("10.0.0.42 5000") || getRemoteId().equals("10.0.0.42 3000")){
+//                    log.debug("Sleep");
+//                    try {
+//                        Thread.sleep(120000);
+//                        log.debug("Thread awake:" + getRemoteId());
+//                        term = false;
+//                        while (!term && (data = inreader.readLine()) != null) {
+//                            //reset the starting time
+//                            this.timerStart = 0;
+//                            term = Control.getInstance().process(this, data);               
+//                        }
+//                    } catch (InterruptedException ex) {
+//                        java.util.logging.Logger.getLogger(Connection.class.getName()).log(Level.SEVERE, null, ex);
+//                    } 
+//                }
                 Control.getInstance().connectionClosed(this);
                 closeCon();
             }
@@ -130,11 +153,13 @@ public class Connection extends Thread {
                     }
                 }
             }
+            
             catch (IOException e) {
                 //log.error("connection " + Settings.socketAddress(socket) + " closed with exception: " + e);
                 Control.getInstance().connectionClosed(this);
                 open = false;
             }
+            
         }
         log.error("connection " + Settings.socketAddress(socket) + " closed...");
         Control.getInstance().connectionClosed(this);

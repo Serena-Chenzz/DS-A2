@@ -36,12 +36,12 @@ public class ActivityServerBroadcast {
                 int portNum = ((Number)message.get("sender_port_num")).intValue();
                 JSONObject activity =(JSONObject)message.get("activity");
                 //If it has been the latest message in the server side, the server will discard it
-                if (Control.getInstance().checkAckQueue(timestamp, senderIp, portNum, con)){
-                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, (int)portNum);
+                if (Control.getInstance().checkAckQueue(timestamp, senderIp, portNum)){
+                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, Control.getInstance().getUniqueId());
                     System.out.println("Sending Acknowledgment...");
                     String relay_msg = Command.createRelayMessage(ackMsg, senderIp, portNum + "");
                     Control.getInstance().sendMessageToRandomNeighbor(relay_msg);
-                    Control.getInstance().updateAckQueue(timestamp, senderIp, portNum, con);
+                    Control.getInstance().updateAckQueue(timestamp, senderIp, portNum);
                     
                     Message newMsg = new Message(con,timestamp,activity);
                     Control.getInstance().addToAllClientMsgBufferQueue(newMsg);
@@ -49,11 +49,10 @@ public class ActivityServerBroadcast {
             		}
                 //else,it will send the acknowledgement again
                 else{
-                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, senderIp, (int)portNum);
+                    String ackMsg = Command.createActivityAcknowledgemnt(timestamp, Control.getInstance().getUniqueId());
                     System.out.println("Sending Acknowledgment Again...");
                     String relay_msg = Command.createRelayMessage(ackMsg, senderIp, portNum + "");
                     Control.getInstance().sendMessageToRandomNeighbor(relay_msg);
-                    Control.getInstance().updateAckQueue(timestamp, senderIp, portNum, con);
                     closeConnection=false;
                 }
             }

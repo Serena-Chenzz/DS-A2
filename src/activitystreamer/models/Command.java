@@ -269,8 +269,10 @@ public enum Command {
     } 
     
     @SuppressWarnings("unchecked")
-    public static String createActivityAcknowledgemnt(long timestamp, String senderIp, int portNum){
+    public static String createActivityAcknowledgemnt(long timestamp, String uniqueId){
         JSONObject obj = new JSONObject();
+        String senderIp = uniqueId.split(" ")[0];
+        String portNum = uniqueId.split(" ")[1];
         obj.put("command", Command.ACTIVITY_ACKNOWLEDGEMENT.toString());
         obj.put("timestamp", timestamp);
         obj.put("sender_ip_address", senderIp);

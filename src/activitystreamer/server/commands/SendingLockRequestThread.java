@@ -36,7 +36,7 @@ public class SendingLockRequestThread extends Thread {
                             for(long sendingTime:targetMap.keySet()){
                                 long currentTime = System.currentTimeMillis();
                                 String message = targetMap.get(sendingTime);
-                                if ((!message.equals("Received Ack"))&&(currentTime - sendingTime >= 2000)){
+                                if ((!message.equals("Received Ack"))&&(currentTime - sendingTime >= 500)){
                                     String username = message.split(" ")[0];
                                     String secret = message.split(" ")[1];
                                     
@@ -54,7 +54,7 @@ public class SendingLockRequestThread extends Thread {
                              }
                         }
                 }
-                Thread.sleep(1000);
+                Thread.sleep(500);
                }
             }catch(ConcurrentModificationException e){
                 log.info("Block iterating arrays when modifying it");
