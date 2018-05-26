@@ -18,7 +18,6 @@ public class UserListBroadCastThread extends Thread {
         start();
     }
     
-    
     @Override
     public void run() {
         log.info("UserListBroadCastThread is running");
@@ -28,7 +27,7 @@ public class UserListBroadCastThread extends Thread {
                 ArrayList<User> registeredUsers = Control.getLocalUserList();
                 String registerUserListMsg = Command.usersRegisteredList(registeredUsers);
                 Control.getInstance().broadcast(registerUserListMsg);
-                Thread.sleep(2000);
+                Thread.sleep(3000);
             }catch (InterruptedException e){
                 log.info("This thread is interrupted forcefully.");
             }
