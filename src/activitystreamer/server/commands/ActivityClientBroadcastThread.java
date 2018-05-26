@@ -54,16 +54,17 @@ public class ActivityClientBroadcastThread extends Thread{
                             long msgSendingTime = msg.getTimeStamp();
                             //If the message is sent after the user logs in, then send the message
                             if (msgSendingTime >= userLoginTime){
+                                //Then remove this message from message queue
+                                Control.getInstance().removeFromClientMsgBufferQueue(con, msg);
                                 log.info("Sending message..." + msg);
                                 String broadMsg = Command.createActivityBroadcast(msg);
                                 con.writeMsg(broadMsg);
-                                //Then remove this message from message queue
-                                Control.getInstance().removeFromClientMsgBufferQueue(con, msg);
+                                
                              }
                         }
                     }
                 }
-                Thread.sleep(1000);
+                Thread.sleep(500);
             }catch(ConcurrentModificationException e){
                 log.info("Block iterating arrays when modifying it");
             }catch (InterruptedException e){

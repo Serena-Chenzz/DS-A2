@@ -1,6 +1,8 @@
 package activitystreamer.server;
 import org.json.simple.JSONObject;
 
+import activitystreamer.util.Settings;
+
 public class Message {
     private long timestamp;
     private Connection clientConnection;
@@ -25,11 +27,11 @@ public class Message {
     }
     
     public String getSenderIp(){
-        return this.clientConnection.getSocket().getInetAddress().toString();
+        return Control.getInstance().getUniqueId().split(" ")[0];
     }
     
     public int getPortNum(){
-        return this.clientConnection.getSocket().getPort();
+        return Integer.parseInt(Control.getInstance().getUniqueId().split(" ")[1]);
     }
     
     public JSONObject getActivity(){
@@ -38,16 +40,16 @@ public class Message {
     //Overwrite equals function
     public boolean equals(Message msg2){
         return (this.timestamp == msg2.timestamp) && 
-                (this.clientConnection.getSocket().getInetAddress().equals(msg2.clientConnection.getSocket().getInetAddress())) &&
-                (this.clientConnection.getSocket().getPort()== msg2.clientConnection.getSocket().getPort());
+                (this.getSenderIp().equals(msg2.getSenderIp())) &&
+                (this.getPortNum()== msg2.getPortNum());
     }
     
     //This message will be transferred between servers
     @SuppressWarnings("unchecked")
     public JSONObject getTransferredMsg(){
         message.put("timestamp", this.timestamp);
-        message.put("sender_ip_address", this.clientConnection.getSocket().getInetAddress());
-        message.put("sender_port_num", this.clientConnection.getSocket().getPort());
+        message.put("sender_ip_address", this.getSenderIp());
+        message.put("sender_port_num", this.getPortNum());
         message.put("activity_content", this.message);
         return message;
     }

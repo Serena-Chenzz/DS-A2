@@ -37,8 +37,10 @@ public class RegisterSuccessBroadcast {
                 String secret= message.get("secret").toString();
                 
                 //Add this user to the local userlist
-                Control.getInstance().addLocalUser(username, secret);
-                closeConnection = false;
+                if (!Control.getInstance().checkLocalUser(username)){
+                    Control.getInstance().addLocalUser(username, secret);
+                    closeConnection = false;
+                }
                 }
         }catch(ParseException e){
             e.printStackTrace();

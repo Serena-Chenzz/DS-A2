@@ -44,7 +44,7 @@ public class ServerAnnounce extends Thread{
 				try {
 					load = Load.getOwnLoad();
 					JSONObject serverAnnounce;
-					if(Settings.getLocalHostname()=="localhost") {
+					if(Settings.getLocalHostname().equals("localhost")) {
 						serverAnnounce = Command.createServerAnnounce(
 								Control.getInstance().getUniqueId(),load,ip.getHostAddress(),Settings.getLocalPort()
 						);

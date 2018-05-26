@@ -1,3 +1,4 @@
+
 package activitystreamer.server.commands;
 
 
@@ -50,6 +51,7 @@ public class ActivityMessage {
                     Message newMsg = new Message(con, activity);
                     Control.getInstance().addMessageToBufferQueue(newMsg); 
                     Control.getInstance().addToAllClientMsgBufferQueue(newMsg);
+                    System.out.println("here1");
                     closeConnection = false;
                     return;
                 }else { 

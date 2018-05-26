@@ -33,7 +33,13 @@ public class RelayMessage {
                 //First, check if the target is this server
                 //If it is, deal with it directly
                 String localUniqueId = Control.getInstance().getUniqueId();
+                System.out.println(localUniqueId);
+                System.out.println(targetIp + " " + targetPort);
+                if (targetIp.startsWith("/")){
+                    targetIp=targetIp.substring(1);
+                }
                 if(localUniqueId.equals(targetIp + " " + targetPort)){
+                    System.out.println(relayMsg);
                     boolean result = Control.getInstance().process(con, relayMsg);
                     closeConnection =result;
                 }
@@ -41,7 +47,7 @@ public class RelayMessage {
                     //Send message to the target server
                     for (Connection nei:Control.getNeighbors()){
                         if (nei.getRemoteId().equals(targetIp + " " + targetPort)){
-                            nei.writeMsg(relayMsg);
+                            nei.writeMsg(msg);
                         }
                     }
                 }

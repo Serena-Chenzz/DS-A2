@@ -24,10 +24,13 @@ public class ActivityAcknowledgment {
             message = (JSONObject) parser.parse(msg);
             long msgTimestamp = (long)message.get("timestamp");
             String msgSenderIp = (String)message.get("sender_ip_address");
-            int msgPortNum = ((Number)message.get("sender_port_num")).intValue();
-            Control.getInstance().removeMessageFromBufferQueue(msgTimestamp, msgSenderIp, msgPortNum,con);
+            int msgPortNum = Integer.parseInt((String) message.get("sender_port_num"));
+            if (msgSenderIp.startsWith("/")){
+                msgSenderIp=msgSenderIp.substring(1);
+            }
+            Control.getInstance().removeMessageFromBufferQueue(msgTimestamp, msgSenderIp, msgPortNum);
             //Tell activityBroadcast thread to start broadcasting next message
-            Control.getInstance().activateMessageQueue(con);
+            Control.getInstance().activateMessageQueue(msgSenderIp + " " + msgPortNum);
             
         }
         catch (ParseException e) {
