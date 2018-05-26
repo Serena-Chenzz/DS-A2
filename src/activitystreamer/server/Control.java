@@ -128,7 +128,12 @@ public class Control extends Thread {
         usernameList = new ArrayList<String>();
         registerPendingList = new HashMap<Connection, User>();
         serverLoad = new Load();
-        uniqueId = ip.getHostAddress() + " " + Settings.getLocalPort();
+        if(Settings.getLocalHostname().equals("localhost")) {
+        	uniqueId = ip.getHostAddress() + " " + Settings.getLocalPort();
+        }else {
+        	uniqueId = Settings.getLocalHostname() + " " + Settings.getLocalPort();
+        }
+        
         serverMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
         serverMsgAckQueue = new HashMap<Connection, String>();
         clientMsgBuffQueue = new HashMap<Connection, ArrayList<Message>>();
